@@ -238,7 +238,7 @@ function Install-Git {
         $gitOtherDir = "C:\Program Files (x86)\Git\cmd";
         $gitExe = Join-Path $gitDefaultDir "git.exe"
         $gitExe2 = Join-Path $gitOtherDir "git.exe"
-        if (Test-Path $gitExe -or Test-Path $gitExe2) {
+        if ((Test-Path $gitExe) -or (Test-Path $gitExe2)) {
             Write-Host "Git is already installed. Skipping installation."
         }
         else {
