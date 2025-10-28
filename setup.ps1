@@ -171,7 +171,14 @@ function Install-VisualStudio2022 {
 }
 
 function main {
-    Write-Host "Checking for administrator privileges..."
+    # Ensure running as administrator
+    if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+        Write-Host "This script must be run as an administrator." -ForegroundColor Red
+        exit 1
+    }
+
+    $profilePath = $PROFILE
+    $profileLine = "powershell -ExecutionPolicy Bypass -File `"$PSCommandPath`""
     Write-Host "Ensuring script is in user profile: $profilePath"
     if (-not (Test-Path $profilePath)) {
         New-Item -ItemType File -Path $profilePath -Force | Out-Null
@@ -179,21 +186,8 @@ function main {
     $profileContent = Get-Content $profilePath -Raw
     if ($profileContent -notmatch [regex]::Escape($profileLine)) {
         Add-Content -Path $profilePath -Value $profileLine
-        Write-Host "Added script invocation to profile."
-    }
-    else {
-        Write-Host "Script invocation already present in profile."
-    }
-    if (-not $stage) {
-        Write-Host "DEV_SETUP_STAGE not set. Defaulting to 1."
-    }
-    if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-        Write-Host "This script must be run as an administrator." -ForegroundColor Red
-        exit 1
     }
 
-    $profileLine = "powershell -ExecutionPolicy Bypass -File `"$PSCommandPath`""
-    $profilePath = $PROFILE
     if (-not (Test-Path $profilePath)) {
         New-Item -ItemType File -Path $profilePath -Force | Out-Null
     }
@@ -204,6 +198,7 @@ function main {
 
     $stage = [int]($env:DEV_SETUP_STAGE)
     if (-not $stage) {
+        Write-Host "DEV_SETUP_STAGE not set. Defaulting to 1."
         $stage = 1
         Set-DevSetupStage "$stage"
     }
