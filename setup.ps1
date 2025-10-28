@@ -3,7 +3,7 @@ function Set-DevSetupStage {
         [Parameter(Mandatory = $true)][string]$StageValue
     )
     Write-Host "Advancing to stage $StageValue"
-    [System.Environment]::SetEnvironmentVariable("DEV_SETUP_STAGE", $StageValue, "User")
+    $env:DEV_SETUP_STAGE = $StageValue
 }
 
 function Install-VisualStudio2015 {
@@ -157,7 +157,7 @@ function Install-VisualStudio2022 {
         "--add Microsoft.VisualStudio.Component.VC.CLI.Support.142"
     )
 
-    Write-Host "Launching VS2022 installer..."
+    Write-Host "Installing VS2022. This might take a while..."
 
     try {
         Start-Process -FilePath $localInstaller -ArgumentList $installArgs -Wait -NoNewWindow -ErrorAction Stop
