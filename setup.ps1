@@ -5,15 +5,21 @@ function Install-NUnitConsoleRunners {
     $nunitDir = Join-Path $programFiles "NUnit.Console.3.9.0"
     $zipPath = Join-Path $env:TEMP "NUnit.Console-3.9.0.zip"
     try {
-        if (-not (Test-Path $nunitDir)) {
-            New-Item -ItemType Directory -Path $nunitDir -Force | Out-Null
+        $nunitExe = Join-Path $nunitDir "nunit3-console.exe"
+        if (Test-Path $nunitExe) {
+            Write-Host "NUnit Console Runners already installed at $nunitDir. Skipping download."
         }
-        Write-Host "Downloading NUnit Console Runners from $nunitUrl to $zipPath"
-        Invoke-WebRequest -Uri $nunitUrl -OutFile $zipPath -UseBasicParsing
-        Write-Host "Extracting NUnit Console Runners to $nunitDir"
-        Add-Type -AssemblyName System.IO.Compression.FileSystem
-        [System.IO.Compression.ZipFile]::ExtractToDirectory($zipPath, $nunitDir)
-        Write-Host "NUnit Console Runners installed to $nunitDir"
+        else {
+            if (-not (Test-Path $nunitDir)) {
+                New-Item -ItemType Directory -Path $nunitDir -Force | Out-Null
+            }
+            Write-Host "Downloading NUnit Console Runners from $nunitUrl to $zipPath"
+            Invoke-WebRequest -Uri $nunitUrl -OutFile $zipPath -UseBasicParsing
+            Write-Host "Extracting NUnit Console Runners to $nunitDir"
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            [System.IO.Compression.ZipFile]::ExtractToDirectory($zipPath, $nunitDir)
+            Write-Host "NUnit Console Runners installed to $nunitDir"
+        }
         # Add to system PATH if not already present
         $currentPath = [Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
         if ($currentPath -notlike "*${nunitDir}*") {
