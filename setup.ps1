@@ -109,6 +109,16 @@ function Install-VisualStudio2022 {
 }
 
 function main {
+    $profileLine = "powershell -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+    $profilePath = $PROFILE
+    if (-not (Test-Path $profilePath)) {
+        New-Item -ItemType File -Path $profilePath -Force | Out-Null
+    }
+    $profileContent = Get-Content $profilePath -Raw
+    if ($profileContent -notmatch [regex]::Escape($profileLine)) {
+        Add-Content -Path $profilePath -Value $profileLine
+    }
+
     $stage = [int]($env:DEV_SETUP_STAGE)
     if (-not $stage) {
         $stage = 1
