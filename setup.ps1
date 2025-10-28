@@ -1,3 +1,33 @@
+function Install-GitHubDesktop {
+    Write-Host "Starting GitHub Desktop installation..."
+    $success = $true
+    $ghdUrl = "https://central.github.com/deployments/desktop/desktop/latest/win32"
+    $localDir = "$env:TEMP\GitHubDesktopInstall"
+    $localInstaller = Join-Path $localDir "GitHubDesktopSetup.exe"
+    try {
+        if (-not (Test-Path $localDir)) {
+            New-Item -ItemType Directory -Path $localDir -Force | Out-Null
+        }
+        Write-Host "Downloading GitHub Desktop installer from $ghdUrl to $localInstaller"
+        Invoke-WebRequest -Uri $ghdUrl -OutFile $localInstaller -UseBasicParsing
+    }
+    catch {
+        Write-Host "Failed to download GitHub Desktop installer: $($_.Exception.Message)" -ForegroundColor Red
+        return $false
+    }
+
+    $installArgs = "/silent"
+    try {
+        Write-Host "Running GitHub Desktop installer silently..."
+        Start-Process -FilePath $localInstaller -ArgumentList $installArgs -Wait -NoNewWindow -ErrorAction Stop
+        Write-Host "GitHub Desktop installed successfully."
+    }
+    catch {
+        Write-Host "Failed to install GitHub Desktop: $($_.Exception.Message)" -ForegroundColor Red
+        $success = $false
+    }
+    return $success
+}
 function Set-DevSetupStage {
     param(
         [Parameter(Mandatory = $true)][string]$StageValue
@@ -170,6 +200,37 @@ function Install-VisualStudio2022 {
     return $success
 }
 
+function Install-Git {
+    Write-Host "Starting Git installation..."
+    $success = $true
+    $gitUrl = "https://github.com/git-for-windows/git/releases/latest/download/Git-2.43.0-64-bit.exe"
+    $localDir = "$env:TEMP\GitInstall"
+    $localInstaller = Join-Path $localDir "Git-Setup.exe"
+    try {
+        if (-not (Test-Path $localDir)) {
+            New-Item -ItemType Directory -Path $localDir -Force | Out-Null
+        }
+        Write-Host "Downloading Git installer from $gitUrl to $localInstaller"
+        Invoke-WebRequest -Uri $gitUrl -OutFile $localInstaller -UseBasicParsing
+    }
+    catch {
+        Write-Host "Failed to download Git installer: $($_.Exception.Message)" -ForegroundColor Red
+        return $false
+    }
+
+    $installArgs = "/VERYSILENT /NORESTART /NOCANCEL /SP- /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS"
+    try {
+        Write-Host "Running Git installer silently..."
+        Start-Process -FilePath $localInstaller -ArgumentList $installArgs -Wait -NoNewWindow -ErrorAction Stop
+        Write-Host "Git installed successfully."
+    }
+    catch {
+        Write-Host "Failed to install Git: $($_.Exception.Message)" -ForegroundColor Red
+        $success = $false
+    }
+    return $success
+}
+
 function main {
     # Ensure running as administrator
     if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -219,10 +280,31 @@ function main {
             Set-DevSetupStage "2"
             Write-Host "Stage 1 complete. Restarting shell for next stage..."
             Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit", "-File", "`"$PSCommandPath`""
-            exit
+            Stop-Process -Id $PID
         }
         2 {
-            Write-Host "Stage 2: Setup already completed or next steps go here."
+            Write-Host "Stage 2: Installing NUnit console runners..."
+            try {
+                Write-Host "Running: dotnet add package NUnit.Runners --version 3.9.0"
+                dotnet add package NUnit.Runners --version 3.9.0
+                Write-Host "NUnit console runners installed."
+                $gitOk = Install-Git
+                if (-not $gitOk) {
+                    Write-Host "ERROR: Git installation failed. Please install Git manually and restart Powershell." -ForegroundColor Red
+                    exit 1
+                }
+                Set-DevSetupStage "3"
+                Write-Host "Stage 2 complete. Restarting shell for next stage..."
+                Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit", "-File", "`"$PSCommandPath`""
+                exit
+            }
+            catch {
+                Write-Host "Failed to install NUnit console runners. Please install manually and restart Powershell." -ForegroundColor Red
+                exit 1
+            }
+        }
+        3 {
+            Write-Host "Stage 3: Setup already completed or next steps go here."
             # Add additional setup stages as needed
         }
         default {
