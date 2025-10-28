@@ -1,4 +1,5 @@
 function Set-DevSetupStage {
+    Write-Host "Advancing to stage $StageValue"
     param(
         [Parameter(Mandatory = $true)][string]$StageValue
     )
@@ -6,6 +7,9 @@ function Set-DevSetupStage {
 }
 
 function Install-VisualStudio2015 {
+    Write-Host "Starting Visual Studio 2015 installation process..."
+    Write-Host "Ensuring local directory exists: $localDir"
+    Write-Host "Attempting to copy VS2015 installer from primary location: $primarySource"
     $primarySource = "\\newforma.local\data\departments\Development\Installation Kits\Microsoft\Visual Studio 2015 Pro\vs_professional.exe"
     $backupSource = "\\winnas01\Aperus\Installation Kits\Visual Studio 2015 Pro\vs_professional.exe"
     $localDir = "$env:TEMP\VS2015Install"
@@ -26,7 +30,11 @@ function Install-VisualStudio2015 {
             }
         }
         if (-not $copied -and (Test-Path $backupSource)) {
-            Write-Warning "Trying backup VS2015 installer location."
+            Write-Host "Attempting to copy VS2015 installer from backup location: $backupSource"
+            if ($copied) {
+                Write-Host "VS2015 installer successfully copied to $localInstaller"
+            }
+            Write-Host "Launching VS2015 installer with arguments: $installArgs"
             try {
                 Copy-Item -Path $backupSource -Destination $localInstaller -Force -ErrorAction Stop
                 $copied = $true
@@ -51,6 +59,7 @@ function Install-VisualStudio2015 {
 
     try {
         Start-Process -FilePath $localInstaller -ArgumentList $installArgs -Wait -NoNewWindow -ErrorAction SilentlyContinue
+        Write-Host "VS2015 installer process completed."
     }
     catch {
         Write-Warning "Failed to start VS2015 installer."
@@ -60,7 +69,10 @@ function Install-VisualStudio2015 {
 }
 
 function Install-VisualStudio2022 {
-    Write-Host "Downloading Visual Studio 2022 Professional installer..."
+    Write-Host "Starting Visual Studio 2022 installation process..."
+    Write-Host "Ensuring local directory exists: $localDir"
+    Write-Host "Downloading VS2022 installer from $vsInstallerUrl to $localInstaller"
+    Write-Host "Launching VS2022 installer with arguments: $($installArgs -join ' ')"
     $vsInstallerUrl = "https://aka.ms/vs/17/release/vs_professional.exe"
     $localDir = "$env:TEMP\VS2022Install"
     $localInstaller = Join-Path $localDir "vs_professional.exe"
@@ -146,6 +158,7 @@ function Install-VisualStudio2022 {
 
     try {
         Start-Process -FilePath $localInstaller -ArgumentList $installArgs -Wait -NoNewWindow -ErrorAction Stop
+        Write-Host "VS2022 installer process completed."
     }
     catch {
         Write-Warning "Failed to start Visual Studio 2022 installer."
@@ -155,6 +168,22 @@ function Install-VisualStudio2022 {
 }
 
 function main {
+    Write-Host "Checking for administrator privileges..."
+    Write-Host "Ensuring script is in user profile: $profilePath"
+    if (-not (Test-Path $profilePath)) {
+        New-Item -ItemType File -Path $profilePath -Force | Out-Null
+    }
+    $profileContent = Get-Content $profilePath -Raw
+    if ($profileContent -notmatch [regex]::Escape($profileLine)) {
+        Add-Content -Path $profilePath -Value $profileLine
+        Write-Host "Added script invocation to profile."
+    }
+    else {
+        Write-Host "Script invocation already present in profile."
+    }
+    if (-not $stage) {
+        Write-Host "DEV_SETUP_STAGE not set. Defaulting to 1."
+    }
     if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
         Write-Host "This script must be run as an administrator." -ForegroundColor Red
         exit 1
