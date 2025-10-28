@@ -235,12 +235,11 @@ function Install-Git {
     try {
         # Check for existing installation
         $gitDefaultDir = "C:\Program Files\Git\cmd"
+        $gitOtherDir = "C:\Program Files (x86)\Git\cmd";
         $gitExe = Join-Path $gitDefaultDir "git.exe"
-        if (-not (Test-Path $gitExe)) {
-            $gitExe = Join-Path "C:\Program Files (x86)\Git\cmd" "git.exe"
-        }
-        if (Test-Path $gitExe) {
-            Write-Host "Git is already installed at $gitExe. Skipping installation."
+        $gitExe2 = Join-Path $gitOtherDir "git.exe"
+        if (Test-Path $gitExe -or Test-Path $gitExe2) {
+            Write-Host "Git is already installed. Skipping installation."
         }
         else {
             if (-not (Test-Path $localDir)) {
@@ -284,7 +283,7 @@ function Install-GitHubDesktop {
     $localInstaller = Join-Path $localDir "GitHubDesktopSetup.exe"
     try {
         # Check for existing installation (default location)
-        $ghdExe = "C:\Program Files\GitHub Desktop\GitHubDesktop.exe"
+        $ghdExe = "$env:LOCALAPPDATA\GitHub Desktop\GitHubDesktop.exe"
         if (Test-Path $ghdExe) {
             Write-Host "GitHub Desktop is already installed at $ghdExe. Skipping installation."
             return $true
