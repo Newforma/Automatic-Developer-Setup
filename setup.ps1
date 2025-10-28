@@ -1,8 +1,8 @@
 function Set-DevSetupStage {
-    Write-Host "Advancing to stage $StageValue"
     param(
         [Parameter(Mandatory = $true)][string]$StageValue
     )
+    Write-Host "Advancing to stage $StageValue"
     [System.Environment]::SetEnvironmentVariable("DEV_SETUP_STAGE", $StageValue, "User")
 }
 
