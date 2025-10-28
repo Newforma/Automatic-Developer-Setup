@@ -89,83 +89,97 @@ function Install-VisualStudio2022 {
         $success = $false
     }
 
-    $installArgs = @(
+    $features = @(
+        # Workloads
+        @{ Name = "Managed Desktop"; Arg = "--add Microsoft.VisualStudio.Workload.ManagedDesktop" }
+        @{ Name = "Native Desktop"; Arg = "--add Microsoft.VisualStudio.Workload.NativeDesktop" }
+        @{ Name = "Office/SharePoint"; Arg = "--add Microsoft.VisualStudio.Workload.Office" }
+        # .NET Desktop Development
+        @{ Name = ".NET 4.8 SDK"; Arg = "--add Microsoft.Net.Component.4.8.SDK" }
+        @{ Name = ".NET 4.8 Targeting Pack"; Arg = "--add Microsoft.Net.Component.4.8.TargetingPack" }
+        @{ Name = "Entity Framework"; Arg = "--add Microsoft.VisualStudio.Component.EntityFramework" }
+        @{ Name = "Diagnostic Tools"; Arg = "--add Microsoft.VisualStudio.Component.DiagnosticTools" }
+        @{ Name = "IntelliCode"; Arg = "--add Microsoft.VisualStudio.Component.IntelliCode" }
+        @{ Name = "Just-In-Time Debugger"; Arg = "--add Microsoft.VisualStudio.Component.Debugger.JustInTime" }
+        @{ Name = "Live Share"; Arg = "--add Microsoft.VisualStudio.LiveShare" }
+        @{ Name = "ML .NET Model Builder"; Arg = "--add Microsoft.VisualStudio.Component.ML.NetModelBuilder" }
+        @{ Name = "GitHub Copilot"; Arg = "--add Microsoft.VisualStudio.Component.GitHub.Copilot" }
+        @{ Name = "Blend"; Arg = "--add Microsoft.VisualStudio.Component.Blend" }
+        @{ Name = ".NET 4.6.2 Targeting Pack"; Arg = "--add Microsoft.Net.Component.4.6.2.TargetingPack" }
+        @{ Name = ".NET 4.7.1 Targeting Pack"; Arg = "--add Microsoft.Net.Component.4.7.1.TargetingPack" }
+        @{ Name = "WCF Tooling"; Arg = "--add Microsoft.VisualStudio.Component.Wcf.Tooling" }
+        @{ Name = "SQL LocalDB"; Arg = "--add Microsoft.VisualStudio.Component.SQL.LocalDB" }
+        @{ Name = "JavaScript Diagnostics"; Arg = "--add Microsoft.VisualStudio.Component.JavaScript.Diagnostics" }
+        @{ Name = ".NET 4.8.1 Targeting Pack"; Arg = "--add Microsoft.Net.Component.4.8.1.TargetingPack" }
+        # Desktop Development with C++
+        @{ Name = "VC Tools x86/x64"; Arg = "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64" }
+        @{ Name = "VC ATL"; Arg = "--add Microsoft.VisualStudio.Component.VC.ATL" }
+        @{ Name = "VC ATL ARM"; Arg = "--add Microsoft.VisualStudio.Component.VC.ATL.ARM" }
+        @{ Name = "VC CMake Project"; Arg = "--add Microsoft.VisualStudio.Component.VC.CMake.Project" }
+        @{ Name = "VC LLVM Clang"; Arg = "--add Microsoft.VisualStudio.Component.VC.Llvm.Clang" }
+        @{ Name = "VC MFC"; Arg = "--add Microsoft.VisualStudio.Component.VC.MFC" }
+        @{ Name = "VC TestAdapterForBoostTest"; Arg = "--add Microsoft.VisualStudio.Component.VC.TestAdapterForBoostTest" }
+        @{ Name = "VC TestAdapterForGoogleTest"; Arg = "--add Microsoft.VisualStudio.Component.VC.TestAdapterForGoogleTest" }
+        @{ Name = "VC ASAN"; Arg = "--add Microsoft.VisualStudio.Component.VC.ASAN" }
+        @{ Name = "Windows 11 SDK 22621"; Arg = "--add Microsoft.VisualStudio.Component.Windows11SDK.22621" }
+        @{ Name = "VC vcpkg"; Arg = "--add Microsoft.VisualStudio.Component.VC.vcpkg" }
+        @{ Name = "VC CLI Support"; Arg = "--add Microsoft.VisualStudio.Component.VC.CLI.Support" }
+        @{ Name = "Windows 10 SDK 19041"; Arg = "--add Microsoft.VisualStudio.Component.Windows10SDK.19041" }
+        @{ Name = "VC Tools ARM64"; Arg = "--add Microsoft.VisualStudio.Component.VC.Tools.ARM64" }
+        @{ Name = "VC Tools x86/x64 (repeat)"; Arg = "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64" }
+        @{ Name = "VC v142 x86/x64"; Arg = "--add Microsoft.VisualStudio.Component.VC.v142.x86.x64" }
+        @{ Name = "VC v141 x86/x64"; Arg = "--add Microsoft.VisualStudio.Component.VC.v141.x86.x64" }
+        @{ Name = "VC v140 x86/x64"; Arg = "--add Microsoft.VisualStudio.Component.VC.v140.x86.x64" }
+        @{ Name = "Security Static Analysis"; Arg = "--add Microsoft.VisualStudio.Component.Security.StaticAnalysis" }
+        @{ Name = "VC Profiler"; Arg = "--add Microsoft.VisualStudio.Component.VC.Profiler" }
+        @{ Name = "IntelliCode (repeat)"; Arg = "--add Microsoft.VisualStudio.Component.IntelliCode" }
+        @{ Name = "LiveShare (repeat)"; Arg = "--add Microsoft.VisualStudio.LiveShare" }
+        @{ Name = "JavaScript Diagnostics (repeat)"; Arg = "--add Microsoft.VisualStudio.Component.JavaScript.Diagnostics" }
+        # Office/SharePoint Development
+        @{ Name = "Office Tools"; Arg = "--add Microsoft.VisualStudio.Component.Office.Tools" }
+        @{ Name = "Web Deploy"; Arg = "--add Microsoft.VisualStudio.Component.WebDeploy" }
+        @{ Name = "IntelliCode (repeat 2)"; Arg = "--add Microsoft.VisualStudio.Component.IntelliCode" }
+        @{ Name = ".NET 4.8 Targeting Pack (repeat)"; Arg = "--add Microsoft.Net.Component.4.8.TargetingPack" }
+        @{ Name = "GitHub Copilot (repeat)"; Arg = "--add Microsoft.VisualStudio.Component.GitHub.Copilot" }
+        @{ Name = ".NET 4.6.2 Targeting Pack (repeat)"; Arg = "--add Microsoft.Net.Component.4.6.2.TargetingPack" }
+        @{ Name = ".NET 4.7.1 Targeting Pack (repeat)"; Arg = "--add Microsoft.Net.Component.4.7.1.TargetingPack" }
+        @{ Name = ".NET 4.8.1 Targeting Pack (repeat)"; Arg = "--add Microsoft.Net.Component.4.8.1.TargetingPack" }
+        # Individual components
+        @{ Name = "VC ATL 141"; Arg = "--add Microsoft.VisualStudio.Component.VC.ATL.141" }
+        @{ Name = "VC MFC 141"; Arg = "--add Microsoft.VisualStudio.Component.VC.MFC.141" }
+        @{ Name = "VC ATL 142"; Arg = "--add Microsoft.VisualStudio.Component.VC.ATL.142" }
+        @{ Name = "VC MFC 142"; Arg = "--add Microsoft.VisualStudio.Component.VC.MFC.142" }
+        @{ Name = "VC CLI Support 142"; Arg = "--add Microsoft.VisualStudio.Component.VC.CLI.Support.142" }
+    )
+
+    Write-Host "Installing VS2022 features one at a time. This will take a while..."
+
+    $baseArgs = @(
         "--quiet"
         "--wait"
         "--norestart"
         "--nocache"
         "--installPath `"C:\Program Files\Microsoft Visual Studio\2022\Professional`""
-        "--add Microsoft.VisualStudio.Workload.ManagedDesktop"
-        "--add Microsoft.VisualStudio.Workload.NativeDesktop"
-        "--add Microsoft.VisualStudio.Workload.Office"
-        # .NET Desktop Development
-        "--add Microsoft.Net.Component.4.8.SDK"
-        "--add Microsoft.Net.Component.4.8.TargetingPack"
-        "--add Microsoft.VisualStudio.Component.EntityFramework"
-        "--add Microsoft.VisualStudio.Component.DiagnosticTools"
-        "--add Microsoft.VisualStudio.Component.IntelliCode"
-        "--add Microsoft.VisualStudio.Component.Debugger.JustInTime"
-        "--add Microsoft.VisualStudio.LiveShare"
-        "--add Microsoft.VisualStudio.Component.ML.NetModelBuilder"
-        "--add Microsoft.VisualStudio.Component.GitHub.Copilot"
-        "--add Microsoft.VisualStudio.Component.Blend"
-        "--add Microsoft.Net.Component.4.6.2.TargetingPack"
-        "--add Microsoft.Net.Component.4.7.1.TargetingPack"
-        "--add Microsoft.VisualStudio.Component.Wcf.Tooling"
-        "--add Microsoft.VisualStudio.Component.SQL.LocalDB"
-        "--add Microsoft.VisualStudio.Component.JavaScript.Diagnostics"
-        "--add Microsoft.Net.Component.4.8.1.TargetingPack"
-        # Desktop Development with C++
-        "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
-        "--add Microsoft.VisualStudio.Component.VC.ATL"
-        "--add Microsoft.VisualStudio.Component.VC.ATL.ARM"
-        "--add Microsoft.VisualStudio.Component.VC.CMake.Project"
-        "--add Microsoft.VisualStudio.Component.VC.Llvm.Clang"
-        "--add Microsoft.VisualStudio.Component.VC.MFC"
-        "--add Microsoft.VisualStudio.Component.VC.TestAdapterForBoostTest"
-        "--add Microsoft.VisualStudio.Component.VC.TestAdapterForGoogleTest"
-        "--add Microsoft.VisualStudio.Component.VC.ASAN"
-        "--add Microsoft.VisualStudio.Component.Windows11SDK.22621"
-        "--add Microsoft.VisualStudio.Component.VC.vcpkg"
-        "--add Microsoft.VisualStudio.Component.GitHub.Copilot"
-        "--add Microsoft.VisualStudio.Component.VC.CLI.Support"
-        "--add Microsoft.VisualStudio.Component.Windows10SDK.19041"
-        "--add Microsoft.VisualStudio.Component.VC.Tools.ARM64"
-        "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
-        "--add Microsoft.VisualStudio.Component.VC.v142.x86.x64"
-        "--add Microsoft.VisualStudio.Component.VC.v141.x86.x64"
-        "--add Microsoft.VisualStudio.Component.VC.v140.x86.x64"
-        "--add Microsoft.VisualStudio.Component.Security.StaticAnalysis"
-        "--add Microsoft.VisualStudio.Component.VC.Profiler"
-        "--add Microsoft.VisualStudio.Component.IntelliCode"
-        "--add Microsoft.VisualStudio.LiveShare"
-        "--add Microsoft.VisualStudio.Component.JavaScript.Diagnostics"
-        # Office/SharePoint Development
-        "--add Microsoft.VisualStudio.Component.Office.Tools"
-        "--add Microsoft.VisualStudio.Component.WebDeploy"
-        "--add Microsoft.VisualStudio.Component.IntelliCode"
-        "--add Microsoft.Net.Component.4.8.TargetingPack"
-        "--add Microsoft.VisualStudio.Component.GitHub.Copilot"
-        "--add Microsoft.Net.Component.4.6.2.TargetingPack"
-        "--add Microsoft.Net.Component.4.7.1.TargetingPack"
-        "--add Microsoft.Net.Component.4.8.1.TargetingPack"
-        # Individual components
-        "--add Microsoft.VisualStudio.Component.VC.ATL.141"
-        "--add Microsoft.VisualStudio.Component.VC.MFC.141"
-        "--add Microsoft.VisualStudio.Component.VC.ATL.142"
-        "--add Microsoft.VisualStudio.Component.VC.MFC.142"
-        "--add Microsoft.VisualStudio.Component.VC.CLI.Support.142"
     )
 
-    Write-Host "Installing VS2022. This might take a while..."
-
-    try {
-        Start-Process -FilePath $localInstaller -ArgumentList $installArgs -Wait -NoNewWindow -ErrorAction Stop
-        Write-Host "VS2022 installer process completed."
+    foreach ($feature in $features) {
+        Write-Host "Installing feature: $($feature.Name)"
+        $args = $baseArgs + $feature.Arg
+        try {
+            Start-Process -FilePath $localInstaller -ArgumentList $args -Wait -NoNewWindow -ErrorAction Stop
+            Write-Host "Successfully installed: $($feature.Name)"
+        }
+        catch {
+            Write-Warning "Failed to install feature: $($feature.Name)"
+            $success = $false
+            break
+        }
     }
-    catch {
-        Write-Warning "Failed to start Visual Studio 2022 installer."
-        $success = $false
+    if ($success) {
+        Write-Host "VS2022 all features installed successfully."
+    }
+    else {
+        Write-Warning "VS2022 installation incomplete due to errors."
     }
     return $success
 }
@@ -346,6 +360,10 @@ function main {
             Write-Host "Stage 3 complete. Restarting shell for next stage..."
             Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit", "-File", "`"$PSCommandPath`""
             Stop-Process -Id $PID
+        }
+        4 {
+            Write-Host "Setup complete! All stages finished."
+            Set-DevSetupStage "complete"
         }
         default {
             Write-Host "Unknown stage: $stage"
