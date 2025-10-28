@@ -198,7 +198,7 @@ function main {
 
     $stage = [int]($env:DEV_SETUP_STAGE)
     if (-not $stage) {
-        Write-Host "DEV_SETUP_STAGE not set. Defaulting to 1."
+        Write-Host "Setup stage not set. Defaulting to 1."
         $stage = 1
         Set-DevSetupStage "$stage"
     }
