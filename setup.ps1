@@ -121,10 +121,10 @@ function Install-VisualStudio2022 {
         @{ Name = "VC TestAdapterForBoostTest"; Arg = "--add Microsoft.VisualStudio.Component.VC.TestAdapterForBoostTest" }
         @{ Name = "VC TestAdapterForGoogleTest"; Arg = "--add Microsoft.VisualStudio.Component.VC.TestAdapterForGoogleTest" }
         @{ Name = "VC ASAN"; Arg = "--add Microsoft.VisualStudio.Component.VC.ASAN" }
-        @{ Name = "Windows 11 SDK 22621"; Arg = "--add Microsoft.VisualStudio.Component.Windows11SDK.22621" }
+        @{ Name = "Windows 11 SDK v22621"; Arg = "--add Microsoft.VisualStudio.Component.Windows11SDK.22621" }
         @{ Name = "VC vcpkg"; Arg = "--add Microsoft.VisualStudio.Component.VC.vcpkg" }
         @{ Name = "VC CLI Support"; Arg = "--add Microsoft.VisualStudio.Component.VC.CLI.Support" }
-        @{ Name = "Windows 10 SDK 19041"; Arg = "--add Microsoft.VisualStudio.Component.Windows10SDK.19041" }
+        @{ Name = "Windows 10 SDK v19041"; Arg = "--add Microsoft.VisualStudio.Component.Windows10SDK.19041" }
         @{ Name = "VC Tools ARM64"; Arg = "--add Microsoft.VisualStudio.Component.VC.Tools.ARM64" }
         @{ Name = "VC Tools x86/x64 (repeat)"; Arg = "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64" }
         @{ Name = "VC v142 x86/x64"; Arg = "--add Microsoft.VisualStudio.Component.VC.v142.x86.x64" }
@@ -162,18 +162,21 @@ function Install-VisualStudio2022 {
         "--installPath `"C:\Program Files\Microsoft Visual Studio\2022\Professional`""
     )
 
+    $total = $features.Count
+    $current = 1
     foreach ($feature in $features) {
-        Write-Host "Installing feature: $($feature.Name)"
-        $args = $baseArgs + $feature.Arg
+        Write-Host ("Installing feature ({0}/{1}): {2}" -f $current, $total, $feature.Name)
+        $vsargs = $baseArgs + $feature.Arg
         try {
-            Start-Process -FilePath $localInstaller -ArgumentList $args -Wait -NoNewWindow -ErrorAction Stop
-            Write-Host "Successfully installed: $($feature.Name)"
+            Start-Process -FilePath $localInstaller -ArgumentList $vsargs -Wait -NoNewWindow -ErrorAction Stop
+            Write-Host ("Successfully installed: {0} ({1}/{2})" -f $feature.Name, $current, $total)
         }
         catch {
-            Write-Warning "Failed to install feature: $($feature.Name)"
+            Write-Warning ("Failed to install feature: {0} ({1}/{2})" -f $feature.Name, $current, $total)
             $success = $false
             break
         }
+        $current++
     }
     if ($success) {
         Write-Host "VS2022 all features installed successfully."
