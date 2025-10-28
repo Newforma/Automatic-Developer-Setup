@@ -7,13 +7,13 @@ function Set-DevSetupStage {
 }
 
 function Install-VisualStudio2015 {
-    Write-Host "Starting Visual Studio 2015 installation process..."
-    Write-Host "Ensuring local directory exists: $localDir"
-    Write-Host "Attempting to copy VS2015 installer from primary location: $primarySource"
     $primarySource = "\\newforma.local\data\departments\Development\Installation Kits\Microsoft\Visual Studio 2015 Pro\vs_professional.exe"
     $backupSource = "\\winnas01\Aperus\Installation Kits\Visual Studio 2015 Pro\vs_professional.exe"
     $localDir = "$env:TEMP\VS2015Install"
     $localInstaller = Join-Path $localDir "vs_professional.exe"
+    Write-Host "Starting Visual Studio 2015 installation process..."
+    Write-Host "Ensuring local directory exists: $localDir"
+    Write-Host "Attempting to copy VS2015 installer from primary location: $primarySource"
     $success = $true
     try {
         if (-not (Test-Path $localDir)) {
@@ -22,7 +22,7 @@ function Install-VisualStudio2015 {
         $copied = $false
         if (Test-Path $primarySource) {
             try {
-                Copy-Item -Path $primarySource -Destination $localInstaller -Force -ErrorAction Stop
+                Copy-Item -Path $primarySource -Destination $localInstaller -Force -ErrorAction Stop 2>$null
                 $copied = $true
             }
             catch {
@@ -31,17 +31,16 @@ function Install-VisualStudio2015 {
         }
         if (-not $copied -and (Test-Path $backupSource)) {
             Write-Host "Attempting to copy VS2015 installer from backup location: $backupSource"
-            if ($copied) {
-                Write-Host "VS2015 installer successfully copied to $localInstaller"
-            }
-            Write-Host "Launching VS2015 installer with arguments: $installArgs"
             try {
-                Copy-Item -Path $backupSource -Destination $localInstaller -Force -ErrorAction Stop
+                Copy-Item -Path $backupSource -Destination $localInstaller -Force -ErrorAction Stop 2>$null
                 $copied = $true
             }
             catch {
                 Write-Warning "Failed to copy from backup location: $($_.Exception.Message)"
             }
+        }
+        if ($copied) {
+            Write-Host "VS2015 installer successfully copied to $localInstaller"
         }
         if (-not $copied) {
             Write-Warning "Neither primary nor backup VS2015 installer could be copied."
@@ -56,7 +55,7 @@ function Install-VisualStudio2015 {
     $installArgs = '/quiet /norestart /log "%TEMP%\VS2015Install.log" ' +
     '/features ' +
     'OfficeTools,VC,VC_MFC,VC_MFC_XP,VC_Common'
-
+    Write-Host "Launching VS2015 installer with arguments: $installArgs"
     try {
         Start-Process -FilePath $localInstaller -ArgumentList $installArgs -Wait -NoNewWindow -ErrorAction SilentlyContinue
         Write-Host "VS2015 installer process completed."
@@ -69,10 +68,12 @@ function Install-VisualStudio2015 {
 }
 
 function Install-VisualStudio2022 {
+    $vsInstallerUrl = "https://aka.ms/vs/17/release/vs_professional.exe"
+    $localDir = "$env:TEMP\VS2022Install"
+    $localInstaller = Join-Path $localDir "vs_professional.exe"
     Write-Host "Starting Visual Studio 2022 installation process..."
     Write-Host "Ensuring local directory exists: $localDir"
     Write-Host "Downloading VS2022 installer from $vsInstallerUrl to $localInstaller"
-    Write-Host "Launching VS2022 installer with arguments: $($installArgs -join ' ')"
     $vsInstallerUrl = "https://aka.ms/vs/17/release/vs_professional.exe"
     $localDir = "$env:TEMP\VS2022Install"
     $localInstaller = Join-Path $localDir "vs_professional.exe"
@@ -155,6 +156,8 @@ function Install-VisualStudio2022 {
         "--add Microsoft.VisualStudio.Component.VC.MFC.142"
         "--add Microsoft.VisualStudio.Component.VC.CLI.Support.142"
     )
+
+    Write-Host "Launching VS2022 installer with arguments: $($installArgs -join ' ')"
 
     try {
         Start-Process -FilePath $localInstaller -ArgumentList $installArgs -Wait -NoNewWindow -ErrorAction Stop
