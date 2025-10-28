@@ -233,22 +233,42 @@ function Install-Git {
     $localDir = "$env:TEMP\GitInstall"
     $localInstaller = Join-Path $localDir "Git-Setup.exe"
     try {
-        if (-not (Test-Path $localDir)) {
-            New-Item -ItemType Directory -Path $localDir -Force | Out-Null
+        # Check for existing installation
+        $gitDefaultDir = "C:\Program Files\Git\cmd"
+        $gitExe = Join-Path $gitDefaultDir "git.exe"
+        if (-not (Test-Path $gitExe)) {
+            $gitExe = Join-Path "C:\Program Files (x86)\Git\cmd" "git.exe"
         }
-        Write-Host "Downloading Git installer from $gitUrl to $localInstaller"
-        Invoke-WebRequest -Uri $gitUrl -OutFile $localInstaller -UseBasicParsing
-    }
-    catch {
-        Write-Host "Failed to download Git installer: $($_.Exception.Message)" -ForegroundColor Red
-        return $false
-    }
+        if (Test-Path $gitExe) {
+            Write-Host "Git is already installed at $gitExe. Skipping installation."
+        }
+        else {
+            if (-not (Test-Path $localDir)) {
+                New-Item -ItemType Directory -Path $localDir -Force | Out-Null
+            }
+            Write-Host "Downloading Git installer from $gitUrl to $localInstaller"
+            Invoke-WebRequest -Uri $gitUrl -OutFile $localInstaller -UseBasicParsing
+            $installArgs = "/VERYSILENT /NORESTART /NOCANCEL /SP- /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS"
+            Write-Host "Running Git installer silently..."
+            Start-Process -FilePath $localInstaller -ArgumentList $installArgs -Wait -NoNewWindow -ErrorAction Stop
+            Write-Host "Git installed successfully."
+        }
 
-    $installArgs = "/VERYSILENT /NORESTART /NOCANCEL /SP- /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS"
-    try {
-        Write-Host "Running Git installer silently..."
-        Start-Process -FilePath $localInstaller -ArgumentList $installArgs -Wait -NoNewWindow -ErrorAction Stop
-        Write-Host "Git installed successfully."
+        # Add to PATH if not already present
+        if (Test-Path $gitExe) {
+            $currentPath = [Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
+            if ($currentPath -notlike "*${gitDefaultDir}*") {
+                Write-Host "Adding $gitDefaultDir to system PATH..."
+                [Environment]::SetEnvironmentVariable("Path", "$currentPath;${gitDefaultDir}", [System.EnvironmentVariableTarget]::Machine)
+                Write-Host "Git directory added to system PATH. You may need to restart your shell."
+            }
+            else {
+                Write-Host "Git directory already in system PATH."
+            }
+        }
+        else {
+            Write-Warning "Could not find git.exe in the default install locations. Please ensure Git is in your PATH."
+        }
     }
     catch {
         Write-Host "Failed to install Git: $($_.Exception.Message)" -ForegroundColor Red
@@ -259,33 +279,31 @@ function Install-Git {
 
 function Install-GitHubDesktop {
     Write-Host "Starting GitHub Desktop installation..."
-    $success = $true
     $ghdUrl = "https://central.github.com/deployments/desktop/desktop/latest/win32"
     $localDir = "$env:TEMP\GitHubDesktopInstall"
     $localInstaller = Join-Path $localDir "GitHubDesktopSetup.exe"
     try {
+        # Check for existing installation (default location)
+        $ghdExe = "C:\Program Files\GitHub Desktop\GitHubDesktop.exe"
+        if (Test-Path $ghdExe) {
+            Write-Host "GitHub Desktop is already installed at $ghdExe. Skipping installation."
+            return $true
+        }
         if (-not (Test-Path $localDir)) {
             New-Item -ItemType Directory -Path $localDir -Force | Out-Null
         }
         Write-Host "Downloading GitHub Desktop installer from $ghdUrl to $localInstaller"
         Invoke-WebRequest -Uri $ghdUrl -OutFile $localInstaller -UseBasicParsing
-    }
-    catch {
-        Write-Host "Failed to download GitHub Desktop installer: $($_.Exception.Message)" -ForegroundColor Red
-        return $false
-    }
-
-    $installArgs = "/silent"
-    try {
+        $installArgs = "/silent"
         Write-Host "Running GitHub Desktop installer silently..."
         Start-Process -FilePath $localInstaller -ArgumentList $installArgs -Wait -NoNewWindow -ErrorAction Stop
         Write-Host "GitHub Desktop installed successfully."
+        return $true
     }
     catch {
         Write-Host "Failed to install GitHub Desktop: $($_.Exception.Message)" -ForegroundColor Red
-        $success = $false
+        return $false
     }
-    return $success
 }
 
 function Get-Repositories {
@@ -295,7 +313,7 @@ function Get-Repositories {
         $GitRepoPath = $defaultRepoPath
     }
 
-    Write-Log "Creating git repository directory: $GitRepoPath"
+    Write-Host "Creating git repository directory: $GitRepoPath"
     New-Item -ItemType Directory -Force -Path $GitRepoPath | Out-Null
     
     $repos = @(
@@ -323,10 +341,10 @@ function Get-Repositories {
     foreach ($repo in $repos) {
         $repoPath = Join-Path $GitRepoPath $repo
         if (Test-Path $repoPath) {
-            Write-Log "Repository $repo already exists, skipping clone"
+            Write-Host "Repository $repo already exists, skipping clone"
         }
         else {
-            Write-Log "Cloning $repo..."
+            Write-Host "Cloning $repo..."
             Set-Location $GitRepoPath
             git clone "https://github.com/Newforma/$repo.git"
         }
