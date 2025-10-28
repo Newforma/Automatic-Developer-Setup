@@ -157,7 +157,7 @@ function Install-VisualStudio2022 {
         "--add Microsoft.VisualStudio.Component.VC.CLI.Support.142"
     )
 
-    Write-Host "Launching VS2022 installer with arguments: $($installArgs -join ' ')"
+    Write-Host "Launching VS2022 installer..."
 
     try {
         Start-Process -FilePath $localInstaller -ArgumentList $installArgs -Wait -NoNewWindow -ErrorAction Stop
