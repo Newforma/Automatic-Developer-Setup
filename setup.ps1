@@ -20,7 +20,7 @@ function Install-VisualStudio2015 {
             New-Item -ItemType Directory -Path $localDir -Force | Out-Null
         }
         $copied = $false
-        if (Test-Path $primarySource) {
+        if (Test-Path $primarySource 2>$null) {
             try {
                 Copy-Item -Path $primarySource -Destination $localInstaller -Force -ErrorAction Stop 2>$null
                 $copied = $true
@@ -29,7 +29,7 @@ function Install-VisualStudio2015 {
                 Write-Warning "Failed to copy from primary location: $($_.Exception.Message)"
             }
         }
-        if (-not $copied -and (Test-Path $backupSource)) {
+        if (-not $copied -and (Test-Path $backupSource 2>$null)) {
             Write-Host "Attempting to copy VS2015 installer from backup location: $backupSource"
             try {
                 Copy-Item -Path $backupSource -Destination $localInstaller -Force -ErrorAction Stop 2>$null
