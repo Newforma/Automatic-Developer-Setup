@@ -109,6 +109,11 @@ function Install-VisualStudio2022 {
 }
 
 function main {
+    if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+        Write-Host "This script must be run as an administrator." -ForegroundColor Red
+        exit 1
+    }
+
     $profileLine = "powershell -ExecutionPolicy Bypass -File `"$PSCommandPath`""
     $profilePath = $PROFILE
     if (-not (Test-Path $profilePath)) {
