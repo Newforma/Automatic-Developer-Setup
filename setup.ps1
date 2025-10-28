@@ -1,3 +1,36 @@
+function Install-NUnitConsoleRunners {
+    Write-Host "Installing NUnit Console Runners v3.9.0 from GitHub..."
+    $nunitUrl = "https://github.com/nunit/nunit-console/releases/download/v3.9/NUnit.Console-3.9.0.zip"
+    $programFiles = ${env:ProgramFiles}
+    $nunitDir = Join-Path $programFiles "NUnit.Console.3.9.0"
+    $zipPath = Join-Path $env:TEMP "NUnit.Console-3.9.0.zip"
+    try {
+        if (-not (Test-Path $nunitDir)) {
+            New-Item -ItemType Directory -Path $nunitDir -Force | Out-Null
+        }
+        Write-Host "Downloading NUnit Console Runners from $nunitUrl to $zipPath"
+        Invoke-WebRequest -Uri $nunitUrl -OutFile $zipPath -UseBasicParsing
+        Write-Host "Extracting NUnit Console Runners to $nunitDir"
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [System.IO.Compression.ZipFile]::ExtractToDirectory($zipPath, $nunitDir)
+        Write-Host "NUnit Console Runners installed to $nunitDir"
+        # Add to system PATH if not already present
+        $currentPath = [Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
+        if ($currentPath -notlike "*${nunitDir}*") {
+            Write-Host "Adding $nunitDir to system PATH..."
+            [Environment]::SetEnvironmentVariable("Path", "$currentPath;${nunitDir}", [System.EnvironmentVariableTarget]::Machine)
+            Write-Host "NUnit Console directory added to system PATH. You may need to restart your shell."
+        }
+        else {
+            Write-Host "NUnit Console directory already in system PATH."
+        }
+        return $true
+    }
+    catch {
+        Write-Host "Failed to install NUnit Console Runners: $($_.Exception.Message)" -ForegroundColor Red
+        return $false
+    }
+}
 function Set-DevSetupStage {
     param(
         [Parameter(Mandatory = $true)][string]$StageValue
@@ -347,28 +380,25 @@ function main {
         }
         2 {
             Write-Host "Stage 2: Installing NUnit console runners..."
-            try {
-                & "C:\Program Files\dotnet\dotnet.exe" add package NUnit.Runners --version 3.9.0
-                Write-Host "NUnit console runners installed."
-                $gitOk = Install-Git
-                if (-not $gitOk) {
-                    Write-Host "ERROR: Git installation failed. Please install Git manually and restart Powershell." -ForegroundColor Red
-                    exit 1
-                }
-                $ghdOk = Install-GitHubDesktop
-                if (-not $ghdOk) {
-                    Write-Host "ERROR: GitHub Desktop installation failed. Please install GitHub Desktop manually and restart Powershell." -ForegroundColor Red
-                    exit 1
-                }
-                Set-DevSetupStage "3"
-                Write-Host "Stage 2 complete. Restarting shell for next stage..."
-                Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit", "-File", "`"$PSCommandPath`""
-                Stop-Process -Id $PID
-            }
-            catch {
+            $nunitOk = Install-NUnitConsoleRunners
+            if (-not $nunitOk) {
                 Write-Host "Failed to install NUnit console runners. Please install manually and restart Powershell." -ForegroundColor Red
                 exit 1
             }
+            $gitOk = Install-Git
+            if (-not $gitOk) {
+                Write-Host "ERROR: Git installation failed. Please install Git manually and restart Powershell." -ForegroundColor Red
+                exit 1
+            }
+            $ghdOk = Install-GitHubDesktop
+            if (-not $ghdOk) {
+                Write-Host "ERROR: GitHub Desktop installation failed. Please install GitHub Desktop manually and restart Powershell." -ForegroundColor Red
+                exit 1
+            }
+            Set-DevSetupStage "3"
+            Write-Host "Stage 2 complete. Restarting shell for next stage..."
+            Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit", "-File", "`"$PSCommandPath`""
+            Stop-Process -Id $PID
         }
         3 {
             Write-Host "Stage 3: Cloning repositories..."
