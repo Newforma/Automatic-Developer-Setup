@@ -348,8 +348,7 @@ function main {
         2 {
             Write-Host "Stage 2: Installing NUnit console runners..."
             try {
-                Write-Host "Running: dotnet add package NUnit.Runners --version 3.9.0"
-                dotnet add package NUnit.Runners --version 3.9.0
+                & "C:\Program Files\dotnet\dotnet.exe" add package NUnit.Runners --version 3.9.0
                 Write-Host "NUnit console runners installed."
                 $gitOk = Install-Git
                 if (-not $gitOk) {
