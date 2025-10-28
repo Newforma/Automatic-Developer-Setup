@@ -1,33 +1,3 @@
-function Install-GitHubDesktop {
-    Write-Host "Starting GitHub Desktop installation..."
-    $success = $true
-    $ghdUrl = "https://central.github.com/deployments/desktop/desktop/latest/win32"
-    $localDir = "$env:TEMP\GitHubDesktopInstall"
-    $localInstaller = Join-Path $localDir "GitHubDesktopSetup.exe"
-    try {
-        if (-not (Test-Path $localDir)) {
-            New-Item -ItemType Directory -Path $localDir -Force | Out-Null
-        }
-        Write-Host "Downloading GitHub Desktop installer from $ghdUrl to $localInstaller"
-        Invoke-WebRequest -Uri $ghdUrl -OutFile $localInstaller -UseBasicParsing
-    }
-    catch {
-        Write-Host "Failed to download GitHub Desktop installer: $($_.Exception.Message)" -ForegroundColor Red
-        return $false
-    }
-
-    $installArgs = "/silent"
-    try {
-        Write-Host "Running GitHub Desktop installer silently..."
-        Start-Process -FilePath $localInstaller -ArgumentList $installArgs -Wait -NoNewWindow -ErrorAction Stop
-        Write-Host "GitHub Desktop installed successfully."
-    }
-    catch {
-        Write-Host "Failed to install GitHub Desktop: $($_.Exception.Message)" -ForegroundColor Red
-        $success = $false
-    }
-    return $success
-}
 function Set-DevSetupStage {
     param(
         [Parameter(Mandatory = $true)][string]$StageValue
@@ -231,6 +201,67 @@ function Install-Git {
     return $success
 }
 
+function Install-GitHubDesktop {
+    Write-Host "Starting GitHub Desktop installation..."
+    $success = $true
+    $ghdUrl = "https://central.github.com/deployments/desktop/desktop/latest/win32"
+    $localDir = "$env:TEMP\GitHubDesktopInstall"
+    $localInstaller = Join-Path $localDir "GitHubDesktopSetup.exe"
+    try {
+        if (-not (Test-Path $localDir)) {
+            New-Item -ItemType Directory -Path $localDir -Force | Out-Null
+        }
+        Write-Host "Downloading GitHub Desktop installer from $ghdUrl to $localInstaller"
+        Invoke-WebRequest -Uri $ghdUrl -OutFile $localInstaller -UseBasicParsing
+    }
+    catch {
+        Write-Host "Failed to download GitHub Desktop installer: $($_.Exception.Message)" -ForegroundColor Red
+        return $false
+    }
+
+    $installArgs = "/silent"
+    try {
+        Write-Host "Running GitHub Desktop installer silently..."
+        Start-Process -FilePath $localInstaller -ArgumentList $installArgs -Wait -NoNewWindow -ErrorAction Stop
+        Write-Host "GitHub Desktop installed successfully."
+    }
+    catch {
+        Write-Host "Failed to install GitHub Desktop: $($_.Exception.Message)" -ForegroundColor Red
+        $success = $false
+    }
+    return $success
+}
+
+function Get-Repositories {
+    $defaultRepoPath = "C:/repos"
+    $GitRepoPath = Read-Host "Where should git repositories be cloned? (Default: $defaultRepoPath)"
+    if ([string]::IsNullOrWhiteSpace($GitRepoPath)) {
+        $GitRepoPath = $defaultRepoPath
+    }
+
+    Write-Log "Creating git repository directory: $GitRepoPath"
+    New-Item -ItemType Directory -Force -Path $GitRepoPath | Out-Null
+    
+    $repos = @(
+        "enterprise-suite",
+        "enterprise-technical-documentation",
+        "enterprise-tools",
+        "enterprise-api"
+    )
+    
+    foreach ($repo in $repos) {
+        $repoPath = Join-Path $GitRepoPath $repo
+        if (Test-Path $repoPath) {
+            Write-Log "Repository $repo already exists, skipping clone"
+        }
+        else {
+            Write-Log "Cloning $repo..."
+            Set-Location $GitRepoPath
+            git clone "https://github.com/Newforma/$repo.git"
+        }
+    }
+}
+
 function main {
     # Ensure running as administrator
     if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -293,10 +324,15 @@ function main {
                     Write-Host "ERROR: Git installation failed. Please install Git manually and restart Powershell." -ForegroundColor Red
                     exit 1
                 }
+                $ghdOk = Install-GitHubDesktop
+                if (-not $ghdOk) {
+                    Write-Host "ERROR: GitHub Desktop installation failed. Please install GitHub Desktop manually and restart Powershell." -ForegroundColor Red
+                    exit 1
+                }
                 Set-DevSetupStage "3"
                 Write-Host "Stage 2 complete. Restarting shell for next stage..."
                 Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit", "-File", "`"$PSCommandPath`""
-                exit
+                Stop-Process -Id $PID
             }
             catch {
                 Write-Host "Failed to install NUnit console runners. Please install manually and restart Powershell." -ForegroundColor Red
@@ -304,8 +340,12 @@ function main {
             }
         }
         3 {
-            Write-Host "Stage 3: Setup already completed or next steps go here."
-            # Add additional setup stages as needed
+            Write-Host "Stage 3: Cloning repositories..."
+            Get-Repositories
+            Set-DevSetupStage "4"
+            Write-Host "Stage 3 complete. Restarting shell for next stage..."
+            Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit", "-File", "`"$PSCommandPath`""
+            Stop-Process -Id $PID
         }
         default {
             Write-Host "Unknown stage: $stage"
