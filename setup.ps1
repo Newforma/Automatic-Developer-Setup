@@ -223,7 +223,7 @@ function Install-VisualStudio2022 {
 function Install-Git {
     Write-Host "Starting Git installation..."
     $success = $true
-    $gitUrl = "https://github.com/git-for-windows/git/releases/latest/download/Git-2.43.0-64-bit.exe"
+    $gitUrl = "https://github.com/git-for-windows/git/releases/download/v2.51.2.windows.1/Git-2.51.2-64-bit.exe"
     $localDir = "$env:TEMP\GitInstall"
     $localInstaller = Join-Path $localDir "Git-Setup.exe"
     try {
