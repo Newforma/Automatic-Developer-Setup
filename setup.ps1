@@ -1,12 +1,13 @@
 function Set-DevSetupStage {
     param(
-        [Parameter(Mandatory=$true)][string]$StageValue
+        [Parameter(Mandatory = $true)][string]$StageValue
     )
     [System.Environment]::SetEnvironmentVariable("DEV_SETUP_STAGE", $StageValue, "User")
 }
 
 function Install-VisualStudio2015 {
-    $sourcePath = "\\newforma.local\data\departments\Development\Installation Kits\Microsoft\Visual Studio 2015 Pro\vs_professional.exe"
+    $primarySource = "\\newforma.local\data\departments\Development\Installation Kits\Microsoft\Visual Studio 2015 Pro\vs_professional.exe"
+    $backupSource = "\\winnas01\Aperus\Installation Kits\Visual Studio 2015 Pro\vs_professional.exe"
     $localDir = "$env:TEMP\VS2015Install"
     $localInstaller = Join-Path $localDir "vs_professional.exe"
     $success = $true
@@ -14,19 +15,44 @@ function Install-VisualStudio2015 {
         if (-not (Test-Path $localDir)) {
             New-Item -ItemType Directory -Path $localDir -Force | Out-Null
         }
-        Copy-Item -Path $sourcePath -Destination $localInstaller -Force -ErrorAction SilentlyContinue
-    } catch {
-        Write-Warning "Failed to copy installer."
+        $copied = $false
+        if (Test-Path $primarySource) {
+            try {
+                Copy-Item -Path $primarySource -Destination $localInstaller -Force -ErrorAction Stop
+                $copied = $true
+            }
+            catch {
+                Write-Warning "Failed to copy from primary location: $($_.Exception.Message)"
+            }
+        }
+        if (-not $copied -and (Test-Path $backupSource)) {
+            Write-Warning "Trying backup VS2015 installer location."
+            try {
+                Copy-Item -Path $backupSource -Destination $localInstaller -Force -ErrorAction Stop
+                $copied = $true
+            }
+            catch {
+                Write-Warning "Failed to copy from backup location: $($_.Exception.Message)"
+            }
+        }
+        if (-not $copied) {
+            Write-Warning "Neither primary nor backup VS2015 installer could be copied."
+            $success = $false
+        }
+    }
+    catch {
+        Write-Warning "Unexpected error during installer copy: $($_.Exception.Message)"
         $success = $false
     }
 
     $installArgs = '/quiet /norestart /log "%TEMP%\VS2015Install.log" ' +
-        '/features ' +
-        'OfficeTools,VC,VC_MFC,VC_MFC_XP,VC_Common'
+    '/features ' +
+    'OfficeTools,VC,VC_MFC,VC_MFC_XP,VC_Common'
 
     try {
         Start-Process -FilePath $localInstaller -ArgumentList $installArgs -Wait -NoNewWindow -ErrorAction SilentlyContinue
-    } catch {
+    }
+    catch {
         Write-Warning "Failed to start VS2015 installer."
         $success = $false
     }
@@ -44,7 +70,8 @@ function Install-VisualStudio2022 {
             New-Item -ItemType Directory -Path $localDir -Force | Out-Null
         }
         Invoke-WebRequest -Uri $vsInstallerUrl -OutFile $localInstaller -UseBasicParsing
-    } catch {
+    }
+    catch {
         Write-Warning "Failed to download Visual Studio 2022 installer."
         $success = $false
     }
@@ -119,7 +146,8 @@ function Install-VisualStudio2022 {
 
     try {
         Start-Process -FilePath $localInstaller -ArgumentList $installArgs -Wait -NoNewWindow -ErrorAction Stop
-    } catch {
+    }
+    catch {
         Write-Warning "Failed to start Visual Studio 2022 installer."
         $success = $false
     }
