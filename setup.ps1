@@ -266,6 +266,21 @@ function Get-Repositories {
         "enterprise-api"
     )
     
+    # Set registry key for DeveloperRepositoryPath to enterprise-suite repo path
+    $enterpriseSuitePath = Join-Path $GitRepoPath "enterprise-suite"
+    try {
+        Write-Host "Setting DeveloperRepositoryPath in registry to $enterpriseSuitePath"
+        $regPath = "Registry::HKEY_CLASSES_ROOT\Newforma Installation"
+        if (-not (Test-Path $regPath)) {
+            New-Item -Path $regPath -Force | Out-Null
+        }
+        Set-ItemProperty -Path $regPath -Name "DeveloperRepositoryPath" -Value $enterpriseSuitePath -Type String
+        Write-Host "Registry key set successfully."
+    }
+    catch {
+        Write-Warning "Failed to set registry key: $($_.Exception.Message)"
+    }
+
     foreach ($repo in $repos) {
         $repoPath = Join-Path $GitRepoPath $repo
         if (Test-Path $repoPath) {
