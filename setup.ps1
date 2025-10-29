@@ -109,7 +109,10 @@ function Enable-IISFeatures {
     Write-Host "IIS features enabled"
 }
 
-function Install-MySQLFromMSI {
+function Install-MySql {
+    param(
+        [Parameter(Mandatory = $true)][string]$GitRepoPath
+    )
     $installerPath = Find-MySQLInstaller
     if (-not $installerPath) {
         return $false
@@ -129,6 +132,28 @@ function Install-MySQLFromMSI {
         $process = Start-Process -FilePath msiexec.exe -ArgumentList $arguments -Wait -PassThru -NoNewWindow -ErrorAction Stop
         if ($process.ExitCode -eq 0) {
             Write-Host "MySQL installed successfully."
+            # Find MySQL installation path
+            $mysqlBase = "C:\Program Files\MySQL"
+            $mysqlDir = Get-ChildItem -Path $mysqlBase -Directory | Where-Object { $_.Name -like "MySQL Server*" } | Sort-Object Name -Descending | Select-Object -First 1
+            if ($mysqlDir) {
+                $pluginDir = Join-Path $mysqlDir.FullName "lib\plugin"
+                $srcDir = Join-Path $GitRepoPath "enterprise-suite\Solutions\MySqlWorkbreaker\release\x64"
+                $files = Get-ChildItem -Path $srcDir -Include *.dll, *.pdb -File -ErrorAction SilentlyContinue
+                if ($files) {
+                    Write-Host "Copying MySqlWorkbreaker plugin files to $pluginDir..."
+                    if (-not (Test-Path $pluginDir)) { New-Item -ItemType Directory -Path $pluginDir -Force | Out-Null }
+                    foreach ($file in $files) {
+                        Copy-Item -Path $file.FullName -Destination $pluginDir -Force
+                    }
+                    Write-Host "Plugin files copied."
+                }
+                else {
+                    Write-Warning "No plugin files found in $srcDir"
+                }
+            }
+            else {
+                Write-Warning "Could not find MySQL installation directory in $mysqlBase"
+            }
             return $true
         }
         else {
@@ -653,7 +678,7 @@ function main {
             Write-Host "Launching Redemption installer, please proceed in GUI..."
             & $GitRepoPath\enterprise-suite\Solutions\ThirdParty\Redemption\Install.exe
             [Environment]::SetEnvironmentVariable("OFFICE64", "1", [System.EnvironmentVariableTarget]::Machine)
-            Install-MySQLFromMSI
+            Install-MySql $GitRepoPath
             Enable-IISFeatures
             Install-IISCertificate
             Set-DeveloperProvisionNixName
