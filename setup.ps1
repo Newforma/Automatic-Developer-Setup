@@ -618,11 +618,15 @@ function main {
         New-Item -ItemType File -Path $profilePath -Force | Out-Null
     }
     $profileContent = Get-Content $profilePath -Raw
-    if ($profileContent -notmatch [regex]::Escape($profileLine)) {
+    if ([String]::IsNullOrEmpty(($profileContent) -or $profileContent -notmatch [regex]::Escape($profileLine))) {
         Add-Content -Path $profilePath -Value $profileLine
     }
 
-    $stage = [int]($env:DEV_SETUP_STAGE)
+    $stage = [Environment]::GetEnvironmentVariable("DEV_SETUP_STAGE", [System.EnvironmentVariableTarget]::Machine)
+    if (-not $stage) {
+        $stage = $env:DEV_SETUP_STAGE
+    }
+
     if (-not $stage) {
         Write-Host "Setup stage not set. Defaulting to 1."
         $stage = 1
@@ -645,7 +649,7 @@ function main {
             }
             Set-DevSetupStage "2"
             Write-Host "Stage 1 complete. Restarting shell for next stage..."
-            Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit", "-File", "`"$PSCommandPath`""
+            Start-Process -FilePath "powershell.exe" -ArgumentList "-File", "`"$PSCommandPath`""
             Stop-Process -Id $PID
         }
         2 {
@@ -668,7 +672,7 @@ function main {
             }
             Set-DevSetupStage "3"
             Write-Host "Stage 2 complete. Restarting shell for next stage..."
-            Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit", "-File", "`"$PSCommandPath`""
+            Start-Process -FilePath "powershell.exe" -ArgumentList "-File", "`"$PSCommandPath`""
             Stop-Process -Id $PID
         }
         3 {
@@ -685,7 +689,7 @@ function main {
             Set-DeveloperProvisionNixName
             Set-DevSetupStage "4"
             Write-Host "Stage 3 complete. Restarting shell for next stage..."
-            Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit", "-File", "`"$PSCommandPath`""
+            Start-Process -FilePath "powershell.exe" -ArgumentList "-File", "`"$PSCommandPath`""
             Stop-Process -Id $PID
         }
         4 {
