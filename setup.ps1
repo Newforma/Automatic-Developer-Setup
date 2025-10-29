@@ -137,10 +137,10 @@ function Install-MySql {
             $mysqlDir = Get-ChildItem -Path $mysqlBase -Directory | Where-Object { $_.Name -like "MySQL Server*" } | Sort-Object Name -Descending | Select-Object -First 1
             if ($mysqlDir) {
                 $pluginDir = Join-Path $mysqlDir.FullName "lib\plugin"
-                $srcDir = Join-Path $GitRepoPath "enterprise-suite\Solutions\MySqlWorkbreaker\release\x64"
+                $srcDir = Join-Path $GitRepoPath "enterprise-suite\Solutions\MySqlWordbreaker\release\x64"
                 $files = Get-ChildItem -Path $srcDir -Include *.dll, *.pdb -File -ErrorAction SilentlyContinue
                 if ($files) {
-                    Write-Host "Copying MySqlWorkbreaker plugin files to $pluginDir..."
+                    Write-Host "Copying MySqlWordbreaker plugin files to $pluginDir..."
                     if (-not (Test-Path $pluginDir)) { New-Item -ItemType Directory -Path $pluginDir -Force | Out-Null }
                     foreach ($file in $files) {
                         Copy-Item -Path $file.FullName -Destination $pluginDir -Force
