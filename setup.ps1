@@ -138,7 +138,7 @@ function Install-MySql {
             if ($mysqlDir) {
                 $pluginDir = Join-Path $mysqlDir.FullName "lib\plugin"
                 $srcDir = Join-Path $GitRepoPath "enterprise-suite\Solutions\MySqlWordbreaker\release\x64"
-                $files = Get-ChildItem -Path $srcDir -Include *.dll, *.pdb -File -ErrorAction SilentlyContinue
+                $files = Get-ChildItem -Path $srcDir -File -ErrorAction SilentlyContinue
                 if ($files) {
                     Write-Host "Copying MySqlWordbreaker plugin files to $pluginDir..."
                     if (-not (Test-Path $pluginDir)) { New-Item -ItemType Directory -Path $pluginDir -Force | Out-Null }
