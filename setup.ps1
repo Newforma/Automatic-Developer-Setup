@@ -1,112 +1,217 @@
+function Install-NugetSources {
+    # Download latest NuGet.exe and place in a PATH folder (e.g., C:\windows)
+    $nugetExe = "C:\Program Files\Microsoft Visual Studio\2022\Professional\Common7\IDE\CommonExtensions\Microsoft\NuGet\nuget.exe"
+    if (-not (Test-Path $nugetExe)) {
+        Write-Warning "NuGet.exe not found at expected location: $nugetExe"
+        return $false
+    }
+
+    # Add Newforma package source
+    $newformaArgs = @(
+        "Sources", "Add",
+        "-Name", "Newforma",
+        "-Source", "https://nuget.newforma.com/api/v2/"
+    )
+    Write-Host "Adding Newforma NuGet source..."
+    try {
+        $proc = Start-Process -FilePath $nugetExe -ArgumentList $newformaArgs -Wait -NoNewWindow -PassThru -ErrorAction Stop
+        if ($proc.ExitCode -eq 0) {
+            Write-Host "Newforma NuGet source added successfully."
+        }
+        else {
+            Write-Warning "NuGet exited with code $($proc.ExitCode) while adding Newforma source."
+            return $false
+        }
+    }
+    catch {
+        Write-Warning "Failed to add Newforma NuGet source: $($_.Exception.Message)"
+        return $false
+    }
+
+    # Add Nuget.org package source
+    $nugetOrgArgs = @(
+        "Sources", "Add",
+        "-Name", "Nuget.org",
+        "-Source", "https://api.nuget.org/v3/index.json"
+    )
+    Write-Host "Adding Nuget.org NuGet source..."
+    try {
+        $proc = Start-Process -FilePath $nugetExe -ArgumentList $nugetOrgArgs -Wait -NoNewWindow -PassThru -ErrorAction Stop
+        if ($proc.ExitCode -eq 0) {
+            Write-Host "Nuget.org NuGet source added successfully."
+        }
+        else {
+            Write-Warning "NuGet exited with code $($proc.ExitCode) while adding Nuget.org source."
+            return $false
+        }
+    }
+    catch {
+        Write-Warning "Failed to add Nuget.org NuGet source: $($_.Exception.Message)"
+        return $false
+    }
+
+    # Prompt for GitHub credentials and show instructions
+    Write-Host "`n=== GitHub NuGet Source Setup ==="
+    Write-Host "You will need your GitHub username and a personal access token (PAT) with the following scopes: repo, write:packages, read:packages."
+    $githubUser = Read-Host "Enter your github.com username (leave blank to skip)"
+    if ($githubUser) {
+        Write-Host "To generate a GitHub personal access token, go to https://github.com/settings/tokens and create a token with: repo, write:packages, read:packages."
+        $githubToken = Read-Host "Paste your GitHub personal access token (input hidden)" -AsSecureString
+        $githubTokenPlain = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($githubToken))
+        $nugetArgs = @(
+            "Sources", "Add",
+            "-Name", "github",
+            "-Source", "https://nuget.pkg.github.com/Newforma/index.json",
+            "-UserName", $githubUser,
+            "-Password", $githubTokenPlain
+        )
+        Write-Host "`nRunning..."
+        try {
+            $proc = Start-Process -FilePath $nugetExe -ArgumentList $nugetArgs -Wait -NoNewWindow -PassThru -ErrorAction Stop
+            if ($proc.ExitCode -eq 0) {
+                Write-Host "GitHub NuGet source added successfully."
+            }
+            else {
+                Write-Warning "NuGet exited with code $($proc.ExitCode). Please check output above."
+                return $false
+            }
+        }
+        catch {
+            Write-Warning "Failed to add GitHub NuGet source: $($_.Exception.Message)"
+            return $false
+        }
+    }
+    else {
+        Write-Host "Skipped GitHub source setup. You can add it later with the NuGet CLI."
+    }
+    Write-Host "`nNuGet setup automation complete."
+    return $true
+}
+
 function Set-DeveloperProvisionNixName {
     # Sets HKLM\Software\Wow6432Node\Newforma\20XX\DeveloperProvisionNixName to the local machine name
     $regPath = "HKLM:\Software\Wow6432Node\Newforma\20XX"
-    if (-not (Test-Path $regPath)) {
-        New-Item -Path $regPath -Force | Out-Null
+    try {
+        if (-not (Test-Path $regPath)) {
+            New-Item -Path $regPath -Force | Out-Null
+        }
+        $machineName = $env:COMPUTERNAME
+        Set-ItemProperty -Path $regPath -Name "DeveloperProvisionNixName" -Value $machineName
+        return $true
     }
-    $machineName = $env:COMPUTERNAME
-    Set-ItemProperty -Path $regPath -Name "DeveloperProvisionNixName" -Value $machineName
+    catch {
+        Write-Warning "Failed to set DeveloperProvisionNixName: $($_.Exception.Message)"
+        return $false
+    }
 }
 
 function Install-IISCertificate {
-    $env:COMPUTERNAME = $env:COMPUTERNAME
-
-    Write-Host "Setting up certificate for: $env:COMPUTERNAME" -ForegroundColor Cyan
-    Import-Module WebAdministration -ErrorAction SilentlyContinue
-
-    # Create certificate
-    $subject = "CN=$env:COMPUTERNAME.newforma.local, O=Newforma, OU=Dev, L=Manchester, ST=NH, C=US"
-    $dnsNames = "$env:COMPUTERNAME", "$DevMachineName.newforma.local"
-    
-    $cert = New-SelfSignedCertificate `
-        -Subject $subject `
-        -DnsName $dnsNames `
-        -CertStoreLocation "Cert:\LocalMachine\My" `
-        -KeyExportPolicy Exportable `
-        -KeySpec KeyExchange `
-        -KeyUsage DigitalSignature, KeyEncipherment `
-        -KeyAlgorithm RSA `
-        -KeyLength 2048 `
-        -FriendlyName $env:COMPUTERNAME `
-        -NotAfter (Get-Date).AddYears(5) `
-        -Provider "Microsoft Software Key Storage Provider"
-    
-    Write-Host "Certificate created: $($cert.Thumbprint)"
-
-    # Configure IIS binding
-    $existingBinding = Get-WebBinding -Name "Default Web Site" -Protocol https -Port "443" -ErrorAction SilentlyContinue
-    if ($existingBinding) {
-        Remove-WebBinding -Name "Default Web Site" -Protocol https -Port "443" -Confirm:$false
-    }
-
-    New-WebBinding -Name "Default Web Site" -Protocol https -Port "443" -IPAddress "*" | Out-Null
-    $binding = Get-WebBinding -Name "Default Web Site" -Protocol https -Port "443"
-    $binding.AddSslCertificate($cert.Thumbprint, "My")
-    
-    Write-Host "HTTPS binding configured"
-
-    # Configure authentication
     try {
-        Set-WebConfigurationProperty -Filter "/system.webServer/security/authentication/anonymousAuthentication" -Name enabled -Value $true -PSPath "IIS:\" -Location "Default Web Site" -ErrorAction Stop
-        Set-WebConfigurationProperty -Filter "/system.webServer/security/authentication/windowsAuthentication" -Name enabled -Value $false -PSPath "IIS:\" -Location "Default Web Site" -ErrorAction Stop
-        Set-WebConfigurationProperty -Filter "/system.webServer/security/authentication/basicAuthentication" -Name enabled -Value $false -PSPath "IIS:\" -Location "Default Web Site" -ErrorAction Stop
-        Set-WebConfigurationProperty -Filter "/system.webServer/security/authentication/digestAuthentication" -Name enabled -Value $false -PSPath "IIS:\" -Location "Default Web Site" -ErrorAction Stop
-        Write-Host "Authentication configured"
+        $env:COMPUTERNAME = $env:COMPUTERNAME
+        Write-Host "Setting up certificate for: $env:COMPUTERNAME" -ForegroundColor Cyan
+        Import-Module WebAdministration -ErrorAction SilentlyContinue
+
+        # Create certificate
+        $subject = "CN=$env:COMPUTERNAME.newforma.local, O=Newforma, OU=Dev, L=Manchester, ST=NH, C=US"
+        $dnsNames = "$env:COMPUTERNAME", "$DevMachineName.newforma.local"
+        $cert = New-SelfSignedCertificate `
+            -Subject $subject `
+            -DnsName $dnsNames `
+            -CertStoreLocation "Cert:\LocalMachine\My" `
+            -KeyExportPolicy Exportable `
+            -KeyUsage DigitalSignature, KeyEncipherment `
+            -KeyAlgorithm RSA `
+            -KeyLength 2048 `
+            -FriendlyName $env:COMPUTERNAME `
+            -NotAfter (Get-Date).AddYears(5)
+        Write-Host "Certificate created: $($cert.Thumbprint)"
+
+        # Configure IIS binding
+        $existingBinding = Get-WebBinding -Name "Default Web Site" -Protocol https -Port "443" -ErrorAction SilentlyContinue
+        if ($existingBinding) {
+            Remove-WebBinding -Name "Default Web Site" -Protocol https -Port "443" -Confirm:$false
+        }
+        New-WebBinding -Name "Default Web Site" -Protocol https -Port "443" -IPAddress "*" | Out-Null
+        $binding = Get-WebBinding -Name "Default Web Site" -Protocol https -Port "443"
+        $binding.AddSslCertificate($cert.Thumbprint, "My")
+        Write-Host "HTTPS binding configured"
+
+        # Configure authentication
+        try {
+            Set-WebConfigurationProperty -Filter "/system.webServer/security/authentication/anonymousAuthentication" -Name enabled -Value $true -PSPath "IIS:\" -Location "Default Web Site" -ErrorAction Stop
+            Set-WebConfigurationProperty -Filter "/system.webServer/security/authentication/windowsAuthentication" -Name enabled -Value $false -PSPath "IIS:\" -Location "Default Web Site" -ErrorAction Stop
+            Set-WebConfigurationProperty -Filter "/system.webServer/security/authentication/basicAuthentication" -Name enabled -Value $false -PSPath "IIS:\" -Location "Default Web Site" -ErrorAction Stop
+            Set-WebConfigurationProperty -Filter "/system.webServer/security/authentication/digestAuthentication" -Name enabled -Value $false -PSPath "IIS:\" -Location "Default Web Site" -ErrorAction Stop
+            Write-Host "Authentication configured"
+        }
+        catch {
+            Write-Warning "Could not configure authentication settings"
+        }
+
+        # Clean up old certificates
+        Get-ChildItem -Path "Cert:\LocalMachine\My" | 
+        Where-Object { $_.FriendlyName -eq $env:COMPUTERNAME -and $_.Thumbprint -ne $cert.Thumbprint -and $_.NotAfter -lt (Get-Date) } |
+        ForEach-Object { Remove-Item -Path "Cert:\LocalMachine\My\$($_.Thumbprint)" -Force }
+
+        Write-Host "Certificate setup complete for $env:COMPUTERNAME"
+        return $true
     }
     catch {
-        Write-Warning "Could not configure authentication settings"
+        Write-Warning "Failed to install IIS certificate: $($_.Exception.Message)"
+        return $false
     }
-
-    # Clean up old certificates
-    Get-ChildItem -Path "Cert:\LocalMachine\My" | 
-    Where-Object { $_.FriendlyName -eq $env:COMPUTERNAME -and $_.Thumbprint -ne $cert.Thumbprint -and $_.NotAfter -lt (Get-Date) } |
-    ForEach-Object { Remove-Item -Path "Cert:\LocalMachine\My\$($_.Thumbprint)" -Force }
-
-    Write-Host "Certificate setup complete for $env:COMPUTERNAME"
-    return $cert
 }
 
 function Enable-IISFeatures {
     Write-Host "Enabling IIS features..."
+    try {
+        $features = @(
+            "IIS-WebServerRole",
+            "IIS-WebServer",
+            "IIS-CommonHttpFeatures",
+            "IIS-HttpErrors",
+            "IIS-HttpRedirect",
+            "IIS-ApplicationDevelopment",
+            "IIS-NetFxExtensibility45",
+            "IIS-HealthAndDiagnostics",
+            "IIS-HttpLogging",
+            "IIS-LoggingLibraries",
+            "IIS-RequestMonitor",
+            "IIS-HttpTracing",
+            "IIS-Security",
+            "IIS-RequestFiltering",
+            "IIS-Performance",
+            "IIS-WebServerManagementTools",
+            "IIS-IIS6ManagementCompatibility",
+            "IIS-Metabase",
+            "IIS-ManagementConsole",
+            "IIS-BasicAuthentication",
+            "IIS-WindowsAuthentication",
+            "IIS-StaticContent",
+            "IIS-DefaultDocument",
+            "IIS-WebSockets",
+            "IIS-ApplicationInit",
+            "IIS-ISAPIExtensions",
+            "IIS-ISAPIFilter",
+            "IIS-HttpCompressionStatic",
+            "IIS-ASPNET45",
+            "IIS-CGI"
+        )
     
-    $features = @(
-        "IIS-WebServerRole",
-        "IIS-WebServer",
-        "IIS-CommonHttpFeatures",
-        "IIS-HttpErrors",
-        "IIS-HttpRedirect",
-        "IIS-ApplicationDevelopment",
-        "IIS-NetFxExtensibility45",
-        "IIS-HealthAndDiagnostics",
-        "IIS-HttpLogging",
-        "IIS-LoggingLibraries",
-        "IIS-RequestMonitor",
-        "IIS-HttpTracing",
-        "IIS-Security",
-        "IIS-RequestFiltering",
-        "IIS-Performance",
-        "IIS-WebServerManagementTools",
-        "IIS-IIS6ManagementCompatibility",
-        "IIS-Metabase",
-        "IIS-ManagementConsole",
-        "IIS-BasicAuthentication",
-        "IIS-WindowsAuthentication",
-        "IIS-StaticContent",
-        "IIS-DefaultDocument",
-        "IIS-WebSockets",
-        "IIS-ApplicationInit",
-        "IIS-ISAPIExtensions",
-        "IIS-ISAPIFilter",
-        "IIS-HttpCompressionStatic",
-        "IIS-ASPNET45",
-        "IIS-CGI"
-    )
-    
-    foreach ($feature in $features) {
-        Enable-WindowsOptionalFeature -Online -FeatureName $feature -All -NoRestart -ErrorAction SilentlyContinue
+        foreach ($feature in $features) {
+            $result = Enable-WindowsOptionalFeature -Online -FeatureName $feature -All -NoRestart -ErrorAction SilentlyContinue
+            if ($null -eq $result) {
+                Write-Warning "Failed to enable IIS feature: $feature"
+                return $false
+            }
+        }
+        Write-Host "IIS features enabled"
+        return $true
     }
-    
-    Write-Host "IIS features enabled"
+    catch {
+        Write-Warning "Failed to enable IIS features: $($_.Exception.Message)"
+        return $false
+    }
 }
 
 function Install-MySql {
@@ -588,10 +693,13 @@ function Get-Repositories {
         else {
             Write-Host "Cloning $repo..."
             Set-Location $GitRepoPath
-            git clone "https://github.com/Newforma/$repo.git"
+            $result = git clone "https://github.com/Newforma/$repo.git"
+            if ($LASTEXITCODE -ne 0) {
+                Write-Warning "Failed to clone $repo. Please clone it manually."
+                return $false
+            }
         }
     }
-
     return $GitRepoPath
 }
 
@@ -679,14 +787,43 @@ function main {
             Write-Host "Stage 3: Cloning repositories..."
             Update-SessionPath
             $GitRepoPath = Get-Repositories
+            if (-not $GitRepoPath) {
+                Write-Host "ERROR: Failed to clone repositories. Please clone manually and restart Powershell." -ForegroundColor Red
+                exit 1
+            }
             [System.Media.SystemSounds]::Exclamation.Play()
             Write-Host "Launching Redemption installer, please install to $GitRepoPath/enterprise-suite/Third-Party/Redemption..."
-            Start-Process $GitRepoPath/enterprise-suite/Solutions/ThirdParty/Redemption/Install.exe -Wait
+            $redemptionPath = "$GitRepoPath/enterprise-suite/Solutions/ThirdParty/Redemption/Install.exe"
+            if (-not (Test-Path $redemptionPath)) {
+                Write-Host "ERROR: Redemption installer not found at $redemptionPath. Please install manually and restart Powershell." -ForegroundColor Red
+                exit 1
+            }
+            $redemptionResult = Start-Process $redemptionPath -Wait -PassThru
+            if ($redemptionResult.ExitCode -ne 0) {
+                Write-Host "ERROR: Redemption installer failed. Please install manually and restart Powershell." -ForegroundColor Red
+                exit 1
+            }
             [Environment]::SetEnvironmentVariable("OFFICE64", "1", [System.EnvironmentVariableTarget]::Machine)
-            Install-MySql $GitRepoPath
-            Enable-IISFeatures
-            Install-IISCertificate
-            Set-DeveloperProvisionNixName
+            if (-not (Install-MySql $GitRepoPath)) {
+                Write-Host "ERROR: MySQL installation failed. Please install manually and restart Powershell." -ForegroundColor Red
+                exit 1
+            }
+            if (-not (Enable-IISFeatures)) {
+                Write-Host "ERROR: IIS feature enablement failed. Please enable manually and restart Powershell." -ForegroundColor Red
+                exit 1
+            }
+            if (-not (Install-IISCertificate)) {
+                Write-Host "ERROR: IIS certificate installation failed. Please install manually and restart Powershell." -ForegroundColor Red
+                exit 1
+            }
+            if (-not (Set-DeveloperProvisionNixName)) {
+                Write-Host "ERROR: Registry update failed. Please set DeveloperProvisionNixName manually and restart Powershell." -ForegroundColor Red
+                exit 1
+            }
+            if (-not (Install-NugetSources)) {
+                Write-Host "ERROR: NuGet source setup failed. Please add sources manually and restart Powershell." -ForegroundColor Red
+                exit 1
+            }
             Set-DevSetupStage "4"
             Write-Host "Stage 3 complete. Restarting shell for next stage..."
             Start-Process -FilePath "powershell.exe" -ArgumentList "-File", "`"$PSCommandPath`""
