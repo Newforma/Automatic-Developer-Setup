@@ -28,7 +28,8 @@ function Install-IISCertificate {
         -KeyAlgorithm RSA `
         -KeyLength 2048 `
         -FriendlyName $env:COMPUTERNAME `
-        -NotAfter (Get-Date).AddYears(5)
+        -NotAfter (Get-Date).AddYears(5) `
+        -Provider "Microsoft Software Key Storage Provider"
     
     Write-Host "Certificate created: $($cert.Thumbprint)"
 
