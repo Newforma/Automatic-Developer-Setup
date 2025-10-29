@@ -603,13 +603,14 @@ function main {
     }
 
     $profilePath = $PROFILE
-    $profileLine = "powershell -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+    $profileLine = "& `"$PSCommandPath`""
     Write-Host "Ensuring script is in user profile: $profilePath"
     if (-not (Test-Path $profilePath)) {
         New-Item -ItemType File -Path $profilePath -Force | Out-Null
     }
     $profileContent = Get-Content $profilePath -Raw
-    if ($profileContent -notmatch [regex]::Escape($profileLine)) {
+    $escapedProfileLine = [regex]::Escape($profileLine)
+    if ($profileContent -notmatch $escapedProfileLine) {
         Add-Content -Path $profilePath -Value $profileLine
     }
 
@@ -675,8 +676,8 @@ function main {
             Update-SessionPath
             $GitRepoPath = Get-Repositories
             [System.Media.SystemSounds]::Exclamation.Play()
-            Write-Host "Launching Redemption installer, please proceed in GUI..."
-            & $GitRepoPath\enterprise-suite\Solutions\ThirdParty\Redemption\Install.exe
+            Write-Host "Launching Redemption installer, please install to $GitRepoPath\\enterprise-suite\\Third-Party\\Redemption..."
+            Start-Process $GitRepoPath\enterprise-suite\Solutions\ThirdParty\Redemption\Install.exe -Wait
             [Environment]::SetEnvironmentVariable("OFFICE64", "1", [System.EnvironmentVariableTarget]::Machine)
             Install-MySql $GitRepoPath
             Enable-IISFeatures
