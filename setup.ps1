@@ -566,6 +566,8 @@ function Get-Repositories {
             git clone "https://github.com/Newforma/$repo.git"
         }
     }
+
+    return $GitRepoPath
 }
 
 function main {
@@ -646,7 +648,7 @@ function main {
         3 {
             Write-Host "Stage 3: Cloning repositories..."
             Update-SessionPath
-            Get-Repositories
+            $GitRepoPath = Get-Repositories
             [System.Media.SystemSounds]::Exclamation.Play()
             Write-Host "Launching Redemption installer, please proceed in GUI..."
             & $GitRepoPath\enterprise-suite\Solutions\ThirdParty\Redemption\Installer.exe
