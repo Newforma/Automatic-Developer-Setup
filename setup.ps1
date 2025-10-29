@@ -9,15 +9,14 @@ function Set-DeveloperProvisionNixName {
 }
 
 function Install-IISCertificate {
-    $DevMachineName = $env:COMPUTERNAME,
-    $Port = "443"
+    $env:COMPUTERNAME = $env:COMPUTERNAME
 
-    Write-Host "Setting up certificate for: $DevMachineName" -ForegroundColor Cyan
+    Write-Host "Setting up certificate for: $env:COMPUTERNAME" -ForegroundColor Cyan
     Import-Module WebAdministration -ErrorAction SilentlyContinue
 
     # Create certificate
-    $subject = "CN=$DevMachineName.newforma.local, O=Newforma, OU=Dev, L=Manchester, ST=NH, C=US"
-    $dnsNames = @($DevMachineName, "$DevMachineName.newforma.local")
+    $subject = "CN=$env:COMPUTERNAME.newforma.local, O=Newforma, OU=Dev, L=Manchester, ST=NH, C=US"
+    $dnsNames = "$env:COMPUTERNAME", "$DevMachineName.newforma.local"
     
     $cert = New-SelfSignedCertificate `
         -Subject $subject `
@@ -28,19 +27,19 @@ function Install-IISCertificate {
         -KeyUsage DigitalSignature, KeyEncipherment `
         -KeyAlgorithm RSA `
         -KeyLength 2048 `
-        -FriendlyName $DevMachineName `
+        -FriendlyName $env:COMPUTERNAME `
         -NotAfter (Get-Date).AddYears(5)
     
     Write-Host "Certificate created: $($cert.Thumbprint)"
 
     # Configure IIS binding
-    $existingBinding = Get-WebBinding -Name "Default Web Site" -Protocol https -Port $Port -ErrorAction SilentlyContinue
+    $existingBinding = Get-WebBinding -Name "Default Web Site" -Protocol https -Port "443" -ErrorAction SilentlyContinue
     if ($existingBinding) {
-        Remove-WebBinding -Name "Default Web Site" -Protocol https -Port $Port -Confirm:$false
+        Remove-WebBinding -Name "Default Web Site" -Protocol https -Port "443" -Confirm:$false
     }
-    
-    New-WebBinding -Name "Default Web Site" -Protocol https -Port $Port -IPAddress "*" | Out-Null
-    $binding = Get-WebBinding -Name "Default Web Site" -Protocol https -Port $Port
+
+    New-WebBinding -Name "Default Web Site" -Protocol https -Port "443" -IPAddress "*" | Out-Null
+    $binding = Get-WebBinding -Name "Default Web Site" -Protocol https -Port "443"
     $binding.AddSslCertificate($cert.Thumbprint, "My")
     
     Write-Host "HTTPS binding configured"
@@ -59,10 +58,10 @@ function Install-IISCertificate {
 
     # Clean up old certificates
     Get-ChildItem -Path "Cert:\LocalMachine\My" | 
-    Where-Object { $_.FriendlyName -eq $DevMachineName -and $_.Thumbprint -ne $cert.Thumbprint -and $_.NotAfter -lt (Get-Date) } |
+    Where-Object { $_.FriendlyName -eq $env:COMPUTERNAME -and $_.Thumbprint -ne $cert.Thumbprint -and $_.NotAfter -lt (Get-Date) } |
     ForEach-Object { Remove-Item -Path "Cert:\LocalMachine\My\$($_.Thumbprint)" -Force }
 
-    Write-Host "Certificate setup complete for $DevMachineName"
+    Write-Host "Certificate setup complete for $env:COMPUTERNAME"
     return $cert
 }
 
@@ -680,8 +679,8 @@ function main {
             Update-SessionPath
             $GitRepoPath = Get-Repositories
             [System.Media.SystemSounds]::Exclamation.Play()
-            Write-Host "Launching Redemption installer, please install to $GitRepoPath\\enterprise-suite\\Third-Party\\Redemption..."
-            Start-Process $GitRepoPath\enterprise-suite\Solutions\ThirdParty\Redemption\Install.exe -Wait
+            Write-Host "Launching Redemption installer, please install to $GitRepoPath/enterprise-suite/Third-Party/Redemption..."
+            Start-Process $GitRepoPath/enterprise-suite/Solutions/ThirdParty/Redemption/Install.exe -Wait
             [Environment]::SetEnvironmentVariable("OFFICE64", "1", [System.EnvironmentVariableTarget]::Machine)
             Install-MySql $GitRepoPath
             Enable-IISFeatures
