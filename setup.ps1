@@ -1,3 +1,108 @@
+function Invoke-InstallerUtilitySetupAll {
+    param(
+        [Parameter(Mandatory = $true)][string]$GitRepoPath
+    )
+    $allOk = $true
+    $allOk = $allOk -and (Invoke-InstallerUtilityExe $GitRepoPath SaveDatabaseCredentials root localhost 3306)
+    $allOk = $allOk -and (Invoke-InstallerUtilityExe $GitRepoPath ConfigureMySqlIni)
+    $allOk = $allOk -and (Invoke-InstallerUtilityExe $GitRepoPath ConfigurePerformanceCounters NPCS)
+    $allOk = $allOk -and (Invoke-InstallerUtilityExe $GitRepoPath ConfigurePerformanceCounters NWS)
+    return $allOk
+}
+function Invoke-InstallerUtility {
+    param(
+        [Parameter(Mandatory = $true)][string]$GitRepoPath,
+        [Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments
+    )
+    $exePath = Join-Path $GitRepoPath "enterprise-suite\Solutions\enterprise-core\InstallerUtility\bin\Debug\InstallerUtility.exe"
+    if (-not (Test-Path $exePath)) {
+        Write-Warning "InstallerUtility.exe not found at $exePath. Please build it first."
+        return $false
+    }
+    Write-Host "Running InstallerUtility.exe with arguments: $Arguments"
+    try {
+        $proc = Start-Process -FilePath $exePath -ArgumentList $Arguments -Wait -NoNewWindow -PassThru -ErrorAction Stop
+        if ($proc.ExitCode -eq 0) {
+            Write-Host "InstallerUtility.exe completed successfully."
+            return $true
+        }
+        else {
+            Write-Warning "InstallerUtility.exe exited with code $($proc.ExitCode). Please check output above."
+            return $false
+        }
+    }
+    catch {
+        Write-Warning "Failed to run InstallerUtility.exe: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Invoke-InstallerUtilityBuild {
+    param(
+        [Parameter(Mandatory = $true)][string]$GitRepoPath
+    )
+    $msbuild = "C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe"
+    $projPath = Join-Path $GitRepoPath "enterprise-suite\Solutions\enterprise-core\InstallerUtility\InstallerUtility.csproj"
+    if (-not (Test-Path $msbuild)) {
+        Write-Warning "MSBuild.exe not found at $msbuild. Please ensure VS2022 is installed."
+        return $false
+    }
+    if (-not (Test-Path $projPath)) {
+        Write-Warning "Project file not found: $projPath"
+        return $false
+    }
+    Write-Host "Building $projPath with MSBuild..."
+    $msbuildArgs = @(
+        '"' + $projPath + '"',
+        '/t:Rebuild',
+        '/p:Configuration=Release',
+        '/p:Platform=x64'
+    )
+    try {
+        $proc = Start-Process -FilePath $msbuild -ArgumentList $msbuildArgs -Wait -NoNewWindow -PassThru -ErrorAction Stop
+        if ($proc.ExitCode -eq 0) {
+            Write-Host "InstallerUtility built successfully."
+            return $true
+        }
+        else {
+            Write-Warning "MSBuild exited with code $($proc.ExitCode). Please check output above."
+            return $false
+        }
+    }
+    catch {
+        Write-Warning "Failed to build InstallerUtility: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Install-VSTO2010 {
+    # Download and install Visual Studio 2010 Tools for Office Runtime
+    $vstoUrl = "https://download.microsoft.com/download/1/6/6/166B40A2-7C2B-4A8B-9C6A-6B8A0F6B3C3E/vstor_redist.exe"
+    $localDir = "$env:TEMP\VSTO2010Install"
+    $installerPath = Join-Path $localDir "vstor_redist.exe"
+    try {
+        if (-not (Test-Path $localDir)) {
+            New-Item -ItemType Directory -Path $localDir -Force | Out-Null
+        }
+        Write-Host "Downloading Visual Studio 2010 Tools for Office Runtime..."
+        Invoke-WebRequest -Uri $vstoUrl -OutFile $installerPath -UseBasicParsing
+        Write-Host "Running VSTO 2010 installer silently..."
+        $installArgs = "/q"
+        $proc = Start-Process -FilePath $installerPath -ArgumentList $installArgs -Wait -NoNewWindow -PassThru -ErrorAction Stop
+        if ($proc.ExitCode -eq 0) {
+            Write-Host "VSTO 2010 Runtime installed successfully."
+            return $true
+        }
+        else {
+            Write-Warning "VSTO 2010 installer exited with code $($proc.ExitCode). Please check output above."
+            return $false
+        }
+    }
+    catch {
+        Write-Warning "Failed to install VSTO 2010 Runtime: $($_.Exception.Message)"
+        return $false
+    }
+}
 function Install-NugetSources {
     # Download latest NuGet.exe and place in a PATH folder (e.g., C:\windows)
     $nugetExe = "C:\Program Files\Microsoft Visual Studio\2022\Professional\Common7\IDE\CommonExtensions\Microsoft\NuGet\nuget.exe"
@@ -404,7 +509,7 @@ function Install-VisualStudio2015 {
             New-Item -ItemType Directory -Path $localDir -Force | Out-Null
         }
         $copied = $false
-        if ($($(Test-Path $primarySource) 2>$null)) {
+        if (Test-Path $primarySource 2>$null) {
             try {
                 Copy-Item -Path $primarySource -Destination $localInstaller -Force -ErrorAction Stop 2>$null
                 $copied = $true
@@ -413,7 +518,7 @@ function Install-VisualStudio2015 {
                 Write-Warning "Failed to copy from primary location: $($_.Exception.Message)"
             }
         }
-        if (-not $copied -and $($(Test-Path $backupSource) 2>$null)) {
+        if (-not $copied -and (Test-Path $backupSource 2>$null)) {
             Write-Host "Attempting to copy VS2015 installer from backup location: $backupSource"
             try {
                 Copy-Item -Path $backupSource -Destination $localInstaller -Force -ErrorAction Stop 2>$null
@@ -693,7 +798,7 @@ function Get-Repositories {
         else {
             Write-Host "Cloning $repo..."
             Set-Location $GitRepoPath
-            $result = git clone "https://github.com/Newforma/$repo.git"
+            git clone "https://github.com/Newforma/$repo.git"
             if ($LASTEXITCODE -ne 0) {
                 Write-Warning "Failed to clone $repo. Please clone it manually."
                 return $false
@@ -824,6 +929,29 @@ function main {
                 Write-Host "ERROR: NuGet source setup failed. Please add sources manually and restart Powershell." -ForegroundColor Red
                 exit 1
             }
+            if (-not (Install-VSTO2010)) {
+                Write-Host "ERROR: VSTO 2010 installation failed. Please install manually and restart Powershell." -ForegroundColor Red
+                exit 1
+            }
+            if (-not (Invoke-InstallerUtilityBuild $GitRepoPath)) {
+                Write-Host "ERROR: Installer Utility build failed. Please address build errors and restart Powershell." -ForegroundColor Red
+                exit 1
+            }
+            if (-not (Invoke-InstallerUtilitySetupAll $GitRepoPath)) {
+                Write-Host "ERROR: Installer Utility setup failed. Please run the steps manually and restart Powershell." -ForegroundColor Red
+                exit 1
+            }
+
+            $profileUrl = "https://raw.githubusercontent.com/Newforma/Nathanael-s-Opulent-Powershell/master/Microsoft.PowerShell_profile.ps1"
+            Invoke-WebRequest -Uri $profileUrl -OutFile $PROFILE -UseBasicParsing -Force
+            [System.Media.SoundPlayer]::Exclamation.Play()
+            Write-Host "Please consent to the execution policy change when prompted."
+            Set-ExecutionPolicy RemoteSigned
+
+            $pfxPath = "$GitRepoPath/enterprise-suite/Solutions/OutlookAddIn2013/Newforma--Inc-Newforma-Code-Signing.pfx"
+            $password = ConvertTo-SecureString "Millyard" -AsPlainText -Force
+            Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\LocalMachine\My -Password $password -Exportable
+
             Set-DevSetupStage "4"
             Write-Host "Stage 3 complete. Restarting shell for next stage..."
             Start-Process -FilePath "powershell.exe" -ArgumentList "-File", "`"$PSCommandPath`""
