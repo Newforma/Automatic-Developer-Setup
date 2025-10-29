@@ -1,3 +1,10 @@
+function Update-SessionPath {
+    # Updates the current session's $env:PATH from the system (machine) PATH
+    $machinePath = [Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
+    $env:PATH = $machinePath
+    Write-Host "Session PATH updated from system PATH."
+}
+
 function Install-NUnitConsoleRunners {
     Write-Host "Installing NUnit Console Runners v3.9.0 from GitHub..."
     $nunitUrl = "https://github.com/nunit/nunit-console/releases/download/v3.9/NUnit.Console-3.9.0.zip"
@@ -208,7 +215,6 @@ function Install-VisualStudio2022 {
         $vsargs = $baseArgs + $feature.Arg
         try {
             Start-Process -FilePath $localInstaller -ArgumentList $vsargs -Wait -NoNewWindow -ErrorAction Stop
-            Write-Host ("Successfully installed: {0} ({1}/{2})" -f $feature.Name, $current, $total)
         }
         catch {
             Write-Warning ("Failed to install feature: {0} ({1}/{2})" -f $feature.Name, $current, $total)
@@ -386,6 +392,7 @@ function main {
     switch ($stage) {
         1 {
             Write-Host "Stage 1: Installing Visual Studio 2015 and 2022..."
+            Update-SessionPath
             $vs2015Ok = Install-VisualStudio2015
             if (-not $vs2015Ok) {
                 Write-Host "ERROR: Visual Studio 2015 installation failed. Please install Visual Studio 2015 manually and restart Powershell." -ForegroundColor Red
@@ -403,6 +410,7 @@ function main {
         }
         2 {
             Write-Host "Stage 2: Installing NUnit console runners..."
+            Update-SessionPath
             $nunitOk = Install-NUnitConsoleRunners
             if (-not $nunitOk) {
                 Write-Host "Failed to install NUnit console runners. Please install manually and restart Powershell." -ForegroundColor Red
@@ -425,6 +433,8 @@ function main {
         }
         3 {
             Write-Host "Stage 3: Cloning repositories..."
+            Update-SessionPath
+
             Get-Repositories
             Set-DevSetupStage "4"
             Write-Host "Stage 3 complete. Restarting shell for next stage..."
