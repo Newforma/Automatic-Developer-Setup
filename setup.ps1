@@ -1,3 +1,211 @@
+function Set-DeveloperProvisionNixName {
+    # Sets HKLM\Software\Wow6432Node\Newforma\20XX\DeveloperProvisionNixName to the local machine name
+    $regPath = "HKLM:\Software\Wow6432Node\Newforma\20XX"
+    if (-not (Test-Path $regPath)) {
+        New-Item -Path $regPath -Force | Out-Null
+    }
+    $machineName = $env:COMPUTERNAME
+    Set-ItemProperty -Path $regPath -Name "DeveloperProvisionNixName" -Value $machineName
+}
+
+function Install-IISCertificate {
+    $DevMachineName = $env:COMPUTERNAME,
+    $Port = "443"
+
+    Write-Host "Setting up certificate for: $DevMachineName" -ForegroundColor Cyan
+    Import-Module WebAdministration -ErrorAction SilentlyContinue
+
+    # Create certificate
+    $subject = "CN=$DevMachineName.newforma.local, O=Newforma, OU=Dev, L=Manchester, ST=NH, C=US"
+    $dnsNames = @($DevMachineName, "$DevMachineName.newforma.local")
+    
+    $cert = New-SelfSignedCertificate `
+        -Subject $subject `
+        -DnsName $dnsNames `
+        -CertStoreLocation "Cert:\LocalMachine\My" `
+        -KeyExportPolicy Exportable `
+        -KeySpec KeyExchange `
+        -KeyUsage DigitalSignature, KeyEncipherment `
+        -KeyAlgorithm RSA `
+        -KeyLength 2048 `
+        -FriendlyName $DevMachineName `
+        -NotAfter (Get-Date).AddYears(5)
+    
+    Write-Host "Certificate created: $($cert.Thumbprint)"
+
+    # Configure IIS binding
+    $existingBinding = Get-WebBinding -Name "Default Web Site" -Protocol https -Port $Port -ErrorAction SilentlyContinue
+    if ($existingBinding) {
+        Remove-WebBinding -Name "Default Web Site" -Protocol https -Port $Port -Confirm:$false
+    }
+    
+    New-WebBinding -Name "Default Web Site" -Protocol https -Port $Port -IPAddress "*" | Out-Null
+    $binding = Get-WebBinding -Name "Default Web Site" -Protocol https -Port $Port
+    $binding.AddSslCertificate($cert.Thumbprint, "My")
+    
+    Write-Host "HTTPS binding configured"
+
+    # Configure authentication
+    try {
+        Set-WebConfigurationProperty -Filter "/system.webServer/security/authentication/anonymousAuthentication" -Name enabled -Value $true -PSPath "IIS:\" -Location "Default Web Site" -ErrorAction Stop
+        Set-WebConfigurationProperty -Filter "/system.webServer/security/authentication/windowsAuthentication" -Name enabled -Value $false -PSPath "IIS:\" -Location "Default Web Site" -ErrorAction Stop
+        Set-WebConfigurationProperty -Filter "/system.webServer/security/authentication/basicAuthentication" -Name enabled -Value $false -PSPath "IIS:\" -Location "Default Web Site" -ErrorAction Stop
+        Set-WebConfigurationProperty -Filter "/system.webServer/security/authentication/digestAuthentication" -Name enabled -Value $false -PSPath "IIS:\" -Location "Default Web Site" -ErrorAction Stop
+        Write-Host "Authentication configured"
+    }
+    catch {
+        Write-Warning "Could not configure authentication settings"
+    }
+
+    # Clean up old certificates
+    Get-ChildItem -Path "Cert:\LocalMachine\My" | 
+    Where-Object { $_.FriendlyName -eq $DevMachineName -and $_.Thumbprint -ne $cert.Thumbprint -and $_.NotAfter -lt (Get-Date) } |
+    ForEach-Object { Remove-Item -Path "Cert:\LocalMachine\My\$($_.Thumbprint)" -Force }
+
+    Write-Host "Certificate setup complete for $DevMachineName"
+    return $cert
+}
+
+function Enable-IISFeatures {
+    Write-Host "Enabling IIS features..."
+    
+    $features = @(
+        "IIS-WebServerRole",
+        "IIS-WebServer",
+        "IIS-CommonHttpFeatures",
+        "IIS-HttpErrors",
+        "IIS-HttpRedirect",
+        "IIS-ApplicationDevelopment",
+        "IIS-NetFxExtensibility45",
+        "IIS-HealthAndDiagnostics",
+        "IIS-HttpLogging",
+        "IIS-LoggingLibraries",
+        "IIS-RequestMonitor",
+        "IIS-HttpTracing",
+        "IIS-Security",
+        "IIS-RequestFiltering",
+        "IIS-Performance",
+        "IIS-WebServerManagementTools",
+        "IIS-IIS6ManagementCompatibility",
+        "IIS-Metabase",
+        "IIS-ManagementConsole",
+        "IIS-BasicAuthentication",
+        "IIS-WindowsAuthentication",
+        "IIS-StaticContent",
+        "IIS-DefaultDocument",
+        "IIS-WebSockets",
+        "IIS-ApplicationInit",
+        "IIS-ISAPIExtensions",
+        "IIS-ISAPIFilter",
+        "IIS-HttpCompressionStatic",
+        "IIS-ASPNET45",
+        "IIS-CGI"
+    )
+    
+    foreach ($feature in $features) {
+        Enable-WindowsOptionalFeature -Online -FeatureName $feature -All -NoRestart -ErrorAction SilentlyContinue
+    }
+    
+    Write-Host "IIS features enabled"
+}
+
+function Install-MySQLFromMSI {
+    $installerPath = Find-MySQLInstaller
+    if (-not $installerPath) {
+        return $false
+    }
+    Write-Host "Starting silent MySQL installation from $installerPath..."
+    $arguments = @(
+        "/i"
+        "`"$installerPath`""
+        "/qn"
+        "/norestart"
+        'INSTALLDIR="C:\Program Files\MySQL\MySQL Server"'
+        "SERVICENAME=MySQL"
+        "ROOTPASSWORD=root"
+        "ADDLOCAL=ALL"
+    )
+    try {
+        $process = Start-Process -FilePath msiexec.exe -ArgumentList $arguments -Wait -PassThru -NoNewWindow -ErrorAction Stop
+        if ($process.ExitCode -eq 0) {
+            Write-Host "MySQL installed successfully."
+            return $true
+        }
+        else {
+            Write-Host "MySQL installer exited with code $($process.ExitCode)" -ForegroundColor Red
+            return $false
+        }
+    }
+    catch {
+        Write-Host "Failed to install MySQL: $($_.Exception.Message)" -ForegroundColor Red
+        return $false
+    }
+}
+function Find-MySQLInstaller {
+    $basePath = "\\winnas01\qadata$\Builds\Project_Center\develop"
+    if (-not (Test-Path $basePath)) {
+        Write-Warning "Base path not found: $basePath"
+        return $null
+    }
+    $folders = Get-ChildItem -Path $basePath -Directory | Where-Object { $_.Name -match '^20\d{2}\.\d+\.\d+$' }
+    if (-not $folders) {
+        Write-Warning "No versioned folders found in $basePath"
+        return $null
+    }
+    # Sort by version descending (latest first)
+    $latest = $folders | Sort-Object { [version]($_.Name -replace '^([0-9]+\.[0-9]+\.[0-9]+)$', '$1') } -Descending | Select-Object -First 1
+    Write-Host "Latest versioned folder: $($latest.Name)"
+
+    # Find latest build subfolder (5-digit number)
+    $buildFolders = Get-ChildItem -Path $latest.FullName -Directory | Where-Object { $_.Name -match '^\d{5}$' }
+    if (-not $buildFolders) {
+        Write-Warning "No build subfolders found in $($latest.FullName)"
+        return $null
+    }
+    $latestBuild = $buildFolders | Sort-Object Name -Descending | Select-Object -First 1
+    Write-Host "Latest build subfolder: $($latestBuild.Name)"
+
+    $mysqlDir = Join-Path $latestBuild.FullName "MySQLMigrator\MySQL"
+    if (-not (Test-Path $mysqlDir)) {
+        Write-Warning "MySQL directory not found: $mysqlDir"
+        return $null
+    }
+    $msi = Get-ChildItem -Path $mysqlDir -Filter *.msi -File -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($msi) {
+        Write-Host "Found MySQL installer (msi): $($msi.FullName)"
+        return $msi.FullName
+    }
+    $exe = Get-ChildItem -Path $mysqlDir -Filter *.exe -File -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($exe) {
+        Write-Host "Found MySQL installer (exe): $($exe.FullName)"
+        return $exe.FullName
+    }
+    Write-Warning "No MySQL installer (.msi or .exe) found in $mysqlDir"
+    return $null
+}
+
+function Get-NPCVersionFromRepo {
+    $versionFile = Join-Path $GitRepoPath 'enterprise-suite\Solutions\enterprise-core\Core\Remote\RemoteConstants.cs'
+    if (-not (Test-Path $versionFile)) {
+        Write-Warning "Could not find version file: $versionFile"
+        return $null
+    }
+    $content = Get-Content $versionFile | Where-Object { $_ -match 'public const string VERSION' }
+    if ($content) {
+        if ($content -match '"([0-9]+\.[0-9]+)"') {
+            return $matches[1]
+        }
+        else {
+            Write-Warning "VERSION line found but could not extract version."
+            return $null
+        }
+    }
+    else {
+        Write-Warning "VERSION line not found in $versionFile"
+        return $null
+    }
+}
+
 function Update-SessionPath {
     # Updates the current session's $env:PATH from the system (machine) PATH
     $machinePath = [Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
@@ -49,7 +257,7 @@ function Set-DevSetupStage {
         [Parameter(Mandatory = $true)][string]$StageValue
     )
     Write-Host "Advancing to stage $StageValue"
-    $env:DEV_SETUP_STAGE = $StageValue
+    [Environment]::SetEnvironmentVariable("DEV_SETUP_STAGE", $StageValue, [System.EnvironmentVariableTarget]::Machine)
 }
 
 function Install-VisualStudio2015 {
@@ -66,7 +274,7 @@ function Install-VisualStudio2015 {
             New-Item -ItemType Directory -Path $localDir -Force | Out-Null
         }
         $copied = $false
-        if (Test-Path $primarySource 2>$null) {
+        if ($($(Test-Path $primarySource) 2>$null)) {
             try {
                 Copy-Item -Path $primarySource -Destination $localInstaller -Force -ErrorAction Stop 2>$null
                 $copied = $true
@@ -75,7 +283,7 @@ function Install-VisualStudio2015 {
                 Write-Warning "Failed to copy from primary location: $($_.Exception.Message)"
             }
         }
-        if (-not $copied -and (Test-Path $backupSource 2>$null)) {
+        if (-not $copied -and $($(Test-Path $backupSource) 2>$null)) {
             Write-Host "Attempting to copy VS2015 installer from backup location: $backupSource"
             try {
                 Copy-Item -Path $backupSource -Destination $localInstaller -Force -ErrorAction Stop 2>$null
@@ -342,6 +550,10 @@ function Get-Repositories {
     catch {
         Write-Warning "Failed to set registry key: $($_.Exception.Message)"
     }
+    
+    # User will need to log in to github, so play a sound to get their attention
+    Write-Host "Please log in to GitHub if prompted to authenticate."
+    [System.Media.SystemSounds]::Exclamation.Play()
 
     foreach ($repo in $repos) {
         $repoPath = Join-Path $GitRepoPath $repo
@@ -435,8 +647,14 @@ function main {
             Write-Host "Stage 3: Cloning repositories..."
             Update-SessionPath
             Get-Repositories
+            [System.Media.SystemSounds]::Exclamation.Play()
             Write-Host "Launching Redemption installer, please proceed in GUI..."
             & $GitRepoPath\enterprise-suite\Solutions\ThirdParty\Redemption\Installer.exe
+            [Environment]::SetEnvironmentVariable("OFFICE64", "1", [System.EnvironmentVariableTarget]::Machine)
+            Install-MySQLFromMSI
+            Enable-IISFeatures
+            Install-IISCertificate
+            Set-DeveloperProvisionNixName
             Set-DevSetupStage "4"
             Write-Host "Stage 3 complete. Restarting shell for next stage..."
             Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit", "-File", "`"$PSCommandPath`""
