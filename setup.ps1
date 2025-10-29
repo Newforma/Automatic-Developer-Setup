@@ -651,7 +651,7 @@ function main {
             $GitRepoPath = Get-Repositories
             [System.Media.SystemSounds]::Exclamation.Play()
             Write-Host "Launching Redemption installer, please proceed in GUI..."
-            & $GitRepoPath\enterprise-suite\Solutions\ThirdParty\Redemption\Installer.exe
+            & $GitRepoPath\enterprise-suite\Solutions\ThirdParty\Redemption\Install.exe
             [Environment]::SetEnvironmentVariable("OFFICE64", "1", [System.EnvironmentVariableTarget]::Machine)
             Install-MySQLFromMSI
             Enable-IISFeatures
