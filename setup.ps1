@@ -3,10 +3,10 @@ function Invoke-InstallerUtilitySetupAll {
         [Parameter(Mandatory = $true)][string]$GitRepoPath
     )
     $allOk = $true
-    $allOk = $allOk -and (Invoke-InstallerUtilityExe $GitRepoPath SaveDatabaseCredentials root localhost 3306)
-    $allOk = $allOk -and (Invoke-InstallerUtilityExe $GitRepoPath ConfigureMySqlIni)
-    $allOk = $allOk -and (Invoke-InstallerUtilityExe $GitRepoPath ConfigurePerformanceCounters NPCS)
-    $allOk = $allOk -and (Invoke-InstallerUtilityExe $GitRepoPath ConfigurePerformanceCounters NWS)
+    $allOk = $allOk -and (Invoke-InstallerUtility $GitRepoPath SaveDatabaseCredentials root localhost 3306)
+    $allOk = $allOk -and (Invoke-InstallerUtility $GitRepoPath ConfigureMySqlIni)
+    $allOk = $allOk -and (Invoke-InstallerUtility $GitRepoPath ConfigurePerformanceCounters NPCS)
+    $allOk = $allOk -and (Invoke-InstallerUtility $GitRepoPath ConfigurePerformanceCounters NWS)
     return $allOk
 }
 function Invoke-InstallerUtility {
