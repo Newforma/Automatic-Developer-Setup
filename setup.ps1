@@ -115,13 +115,15 @@ function Install-NugetSources {
     function Get-NugetSources {
         $listArgs = @("nuget", "list", "source")
         $output = & $dotnetExe @listArgs 2>$null
+        # the output is an array of strings, let's convert it to a single string
+        $output = $output -join "`n"
         return $output
     }
 
     $sources = Get-NugetSources
 
     # Add Newforma package source if not present
-    if (-not $sources -match "Newforma") {
+    if ($sources -notmatch "Newforma") {
         Write-Host "Adding Newforma NuGet source via dotnet..."
         $newformaArgs = @(
             "nuget", "add", "source",
@@ -148,7 +150,7 @@ function Install-NugetSources {
     }
 
     # Add Nuget.org package source if not present
-    if (-not $sources -match "Nuget.org") {
+    if ($sources -notmatch "Nuget.org") {
         Write-Host "Adding Nuget.org NuGet source via dotnet..."
         $nugetOrgArgs = @(
             "nuget", "add", "source",
@@ -179,7 +181,7 @@ function Install-NugetSources {
     Write-Host "You will need your GitHub username and a personal access token (PAT) with the following scopes: repo, write:packages, read:packages."
     $githubUser = Read-Host "Enter your github.com username (leave blank to skip)"
     if ($githubUser) {
-        if (-not $sources -match "github") {
+        if ($sources -notmatch "github") {
             Write-Host "To generate a GitHub personal access token, go to https://github.com/settings/tokens and create a token with: repo, write:packages, read:packages."
             $githubToken = Read-Host "Paste your GitHub personal access token (input hidden)" -AsSecureString
             $githubTokenPlain = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($githubToken))
