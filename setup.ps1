@@ -55,8 +55,8 @@ function Invoke-InstallerUtilityBuild {
     $msbuildArgs = @(
         '"' + $projPath + '"',
         '/t:Rebuild',
-        '/p:Configuration=Release',
-        '/p:Platform=x64'
+        '/p:Configuration=Debug',
+        '/p:Platform=AnyCPU'
     )
     try {
         $proc = Start-Process -FilePath $msbuild -ArgumentList $msbuildArgs -Wait -NoNewWindow -PassThru -ErrorAction Stop
