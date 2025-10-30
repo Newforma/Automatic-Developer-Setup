@@ -77,7 +77,7 @@ function Invoke-InstallerUtilityBuild {
 
 function Install-VSTO2010 {
     # Download and install Visual Studio 2010 Tools for Office Runtime
-    $vstoUrl = "https://download.microsoft.com/download/1/6/6/166B40A2-7C2B-4A8B-9C6A-6B8A0F6B3C3E/vstor_redist.exe"
+    $vstoUrl = "https://download.microsoft.com/download/8/6/4/8641e164-7796-4b34-81c7-30d24a5bd533/vstor_redist.exe"
     $localDir = "$env:TEMP\VSTO2010Install"
     $installerPath = Join-Path $localDir "vstor_redist.exe"
     try {
