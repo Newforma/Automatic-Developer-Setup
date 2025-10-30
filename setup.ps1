@@ -59,13 +59,16 @@ function Invoke-InstallerUtilityBuild {
         '/p:Platform=AnyCPU'
     )
     try {
-        $proc = Start-Process -FilePath $msbuild -ArgumentList $msbuildArgs -Wait -NoNewWindow -PassThru -ErrorAction Stop
-        if ($proc.ExitCode -eq 0) {
+        Write-Host "Running: $msbuild $($msbuildArgs -join ' ')"
+        $LASTEXITCODE = 0
+        & $msbuild @msbuildArgs
+        $exitCode = $LASTEXITCODE
+        if ($exitCode -eq 0) {
             Write-Host "InstallerUtility built successfully."
             return $true
         }
         else {
-            Write-Warning "MSBuild exited with code $($proc.ExitCode). Please check output above."
+            Write-Warning "MSBuild exited with code $exitCode. Please check output above."
             return $false
         }
     }
@@ -614,6 +617,8 @@ function Install-VisualStudio2022 {
         @{ Name = "Managed Desktop"; Arg = "--add Microsoft.VisualStudio.Workload.ManagedDesktop" }
         @{ Name = "Native Desktop"; Arg = "--add Microsoft.VisualStudio.Workload.NativeDesktop" }
         @{ Name = "Office/SharePoint"; Arg = "--add Microsoft.VisualStudio.Workload.Office" }
+        # VSTO (Visual Studio Tools for Office)
+        @{ Name = "VSTO (Visual Studio Tools for Office)"; Arg = "--add Microsoft.VisualStudio.Component.Office.Tools" }
         # .NET Desktop Development
         @{ Name = ".NET 4.8 SDK"; Arg = "--add Microsoft.Net.Component.4.8.SDK" }
         @{ Name = ".NET 4.8 Targeting Pack"; Arg = "--add Microsoft.Net.Component.4.8.TargetingPack" }
