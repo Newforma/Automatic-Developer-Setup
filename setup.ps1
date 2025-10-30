@@ -330,6 +330,11 @@ function Enable-IISFeatures {
         )
     
         foreach ($feature in $features) {
+            $state = (Get-WindowsOptionalFeature -Online -FeatureName $feature -ErrorAction SilentlyContinue).State
+            if ($state -eq 'Enabled') {
+                Write-Host "$feature is already enabled. Skipping."
+                continue
+            }
             $result = Enable-WindowsOptionalFeature -Online -FeatureName $feature -All -NoRestart -ErrorAction SilentlyContinue
             if ($null -eq $result) {
                 Write-Warning "Failed to enable IIS feature: $feature"
