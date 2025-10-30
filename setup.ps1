@@ -980,9 +980,6 @@ function main {
 
             $profileUrl = "https://raw.githubusercontent.com/Newforma/Nathanael-s-Opulent-Powershell/master/Microsoft.PowerShell_profile.ps1"
             Invoke-WebRequest -Uri $profileUrl -OutFile $PROFILE -UseBasicParsing -Force
-            [System.Media.SoundPlayer]::Exclamation.Play()
-            Write-Host "Please consent to the execution policy change when prompted."
-            Set-ExecutionPolicy RemoteSigned
 
             $pfxPath = "$GitRepoPath/enterprise-suite/Solutions/OutlookAddIn2013/Newforma--Inc-Newforma-Code-Signing.pfx"
             $password = ConvertTo-SecureString "Millyard" -AsPlainText -Force
