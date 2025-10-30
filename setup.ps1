@@ -104,27 +104,26 @@ function Install-VSTO2010 {
     }
 }
 function Install-NugetSources {
-    # Download latest NuGet.exe and place in a PATH folder (e.g., C:\windows)
-    $nugetExe = "C:\Program Files\Microsoft Visual Studio\2022\Professional\Common7\IDE\CommonExtensions\Microsoft\NuGet\nuget.exe"
-    if (-not (Test-Path $nugetExe)) {
-        Write-Warning "NuGet.exe not found at expected location: $nugetExe"
+    $dotnetExe = "C:\Program Files\dotnet\dotnet.exe"
+    if (-not (Test-Path $dotnetExe)) {
+        Write-Warning "dotnet.exe not found at expected location: $dotnetExe"
         return $false
     }
 
     # Add Newforma package source
+    Write-Host "Adding Newforma NuGet source via dotnet..."
     $newformaArgs = @(
-        "Sources", "Add",
-        "-Name", "Newforma",
-        "-Source", "https://nuget.newforma.com/api/v2/"
+        "nuget", "add", "source",
+        "https://nuget.newforma.com/api/v2/",
+        "--name", "Newforma"
     )
-    Write-Host "Adding Newforma NuGet source..."
     try {
-        $proc = Start-Process -FilePath $nugetExe -ArgumentList $newformaArgs -Wait -NoNewWindow -PassThru -ErrorAction Stop
+        $proc = Start-Process -FilePath $dotnetExe -ArgumentList $newformaArgs -Wait -NoNewWindow -PassThru -ErrorAction Stop
         if ($proc.ExitCode -eq 0) {
             Write-Host "Newforma NuGet source added successfully."
         }
         else {
-            Write-Warning "NuGet exited with code $($proc.ExitCode) while adding Newforma source."
+            Write-Warning "dotnet exited with code $($proc.ExitCode) while adding Newforma source."
             return $false
         }
     }
@@ -134,19 +133,19 @@ function Install-NugetSources {
     }
 
     # Add Nuget.org package source
+    Write-Host "Adding Nuget.org NuGet source via dotnet..."
     $nugetOrgArgs = @(
-        "Sources", "Add",
-        "-Name", "Nuget.org",
-        "-Source", "https://api.nuget.org/v3/index.json"
+        "nuget", "add", "source",
+        "https://api.nuget.org/v3/index.json",
+        "--name", "Nuget.org"
     )
-    Write-Host "Adding Nuget.org NuGet source..."
     try {
-        $proc = Start-Process -FilePath $nugetExe -ArgumentList $nugetOrgArgs -Wait -NoNewWindow -PassThru -ErrorAction Stop
+        $proc = Start-Process -FilePath $dotnetExe -ArgumentList $nugetOrgArgs -Wait -NoNewWindow -PassThru -ErrorAction Stop
         if ($proc.ExitCode -eq 0) {
             Write-Host "Nuget.org NuGet source added successfully."
         }
         else {
-            Write-Warning "NuGet exited with code $($proc.ExitCode) while adding Nuget.org source."
+            Write-Warning "dotnet exited with code $($proc.ExitCode) while adding Nuget.org source."
             return $false
         }
     }
@@ -163,21 +162,21 @@ function Install-NugetSources {
         Write-Host "To generate a GitHub personal access token, go to https://github.com/settings/tokens and create a token with: repo, write:packages, read:packages."
         $githubToken = Read-Host "Paste your GitHub personal access token (input hidden)" -AsSecureString
         $githubTokenPlain = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($githubToken))
-        $nugetArgs = @(
-            "Sources", "Add",
-            "-Name", "github",
-            "-Source", "https://nuget.pkg.github.com/Newforma/index.json",
-            "-UserName", $githubUser,
-            "-Password", $githubTokenPlain
+        $githubArgs = @(
+            "nuget", "add", "source",
+            "https://nuget.pkg.github.com/Newforma/index.json",
+            "--name", "github",
+            "--username", $githubUser,
+            "--password", $githubTokenPlain
         )
         Write-Host "`nRunning..."
         try {
-            $proc = Start-Process -FilePath $nugetExe -ArgumentList $nugetArgs -Wait -NoNewWindow -PassThru -ErrorAction Stop
+            $proc = Start-Process -FilePath $dotnetExe -ArgumentList $githubArgs -Wait -NoNewWindow -PassThru -ErrorAction Stop
             if ($proc.ExitCode -eq 0) {
                 Write-Host "GitHub NuGet source added successfully."
             }
             else {
-                Write-Warning "NuGet exited with code $($proc.ExitCode). Please check output above."
+                Write-Warning "dotnet exited with code $($proc.ExitCode). Please check output above."
                 return $false
             }
         }
@@ -187,7 +186,7 @@ function Install-NugetSources {
         }
     }
     else {
-        Write-Host "Skipped GitHub source setup. You can add it later with the NuGet CLI."
+        Write-Host "Skipped GitHub source setup. You can add it later with the dotnet CLI."
     }
     Write-Host "`nNuGet setup automation complete."
     return $true
