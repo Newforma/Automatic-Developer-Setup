@@ -530,8 +530,8 @@ function Set-DevSetupStage {
 }
 
 function Install-VisualStudio2015 {
-    $primarySource = "\\newforma.local\Aperus\SQA\Installation Kits\Microsoft\Visual Studio 2015 Pro\vs_professional.exe"
-    $backupSource = "\\winnas01\Aperus\Installation Kits\Visual Studio 2015 Pro\vs_professional.exe"
+    $primarySource = "\\newforma.local\Aperus\SQA\Installation Kits\Visual Studio 2015 Pro\vs_professional.exe"
+    $backupSource = "\\newforma.local\Aperus\Installation Kits\Visual Studio 2015 Pro\vs_professional.exe"
     $localDir = "$env:TEMP\VS2015Install"
     $localInstaller = Join-Path $localDir "vs_professional.exe"
     Write-Host "Starting Visual Studio 2015 installation process..."
