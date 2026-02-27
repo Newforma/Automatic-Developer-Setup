@@ -657,18 +657,9 @@ function Install-VisualStudio2022 {
         @{ Name = "VC v140 x86/x64"; Arg = "--add Microsoft.VisualStudio.Component.VC.v140.x86.x64" }
         @{ Name = "Security Static Analysis"; Arg = "--add Microsoft.VisualStudio.Component.Security.StaticAnalysis" }
         @{ Name = "VC Profiler"; Arg = "--add Microsoft.VisualStudio.Component.VC.Profiler" }
-        @{ Name = "IntelliCode (repeat)"; Arg = "--add Microsoft.VisualStudio.Component.IntelliCode" }
-        @{ Name = "LiveShare (repeat)"; Arg = "--add Microsoft.VisualStudio.LiveShare" }
-        @{ Name = "JavaScript Diagnostics (repeat)"; Arg = "--add Microsoft.VisualStudio.Component.JavaScript.Diagnostics" }
         # Office/SharePoint Development
         @{ Name = "Office Tools"; Arg = "--add Microsoft.VisualStudio.Component.Office.Tools" }
         @{ Name = "Web Deploy"; Arg = "--add Microsoft.VisualStudio.Component.WebDeploy" }
-        @{ Name = "IntelliCode (repeat 2)"; Arg = "--add Microsoft.VisualStudio.Component.IntelliCode" }
-        @{ Name = ".NET 4.8 Targeting Pack (repeat)"; Arg = "--add Microsoft.Net.Component.4.8.TargetingPack" }
-        @{ Name = "GitHub Copilot (repeat)"; Arg = "--add Microsoft.VisualStudio.Component.GitHub.Copilot" }
-        @{ Name = ".NET 4.6.2 Targeting Pack (repeat)"; Arg = "--add Microsoft.Net.Component.4.6.2.TargetingPack" }
-        @{ Name = ".NET 4.7.1 Targeting Pack (repeat)"; Arg = "--add Microsoft.Net.Component.4.7.1.TargetingPack" }
-        @{ Name = ".NET 4.8.1 Targeting Pack (repeat)"; Arg = "--add Microsoft.Net.Component.4.8.1.TargetingPack" }
         # Individual components
         @{ Name = "VC ATL 141"; Arg = "--add Microsoft.VisualStudio.Component.VC.ATL.141" }
         @{ Name = "VC MFC 141"; Arg = "--add Microsoft.VisualStudio.Component.VC.MFC.141" }
